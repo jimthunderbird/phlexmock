@@ -19,8 +19,8 @@ class PhlexMock
         $this->classExtension = 'php';
         $this->classBuffer = [];
         $this->version = 0;
-        $this->parser = new PhpParser\Parser(new PhpParser\Lexer);
-        $this->serializer = new PhpParser\Serializer\XML();
+        $this->parser = new \PhpParser\Parser(new \PhpParser\Lexer);
+        $this->serializer = new \PhpParser\Serializer\XML();
     }
 
     public function addClassSearchPath($classSearchPath)
@@ -49,7 +49,7 @@ class PhlexMock
                     $stmts = $this->parser->parse($classCode);
                     print $this->serializer->serialize($stmts);
                     $this->classBuffer[] = $classFile;
-                } catch (PhpParser\Error $e) {
+                } catch (\PhpParser\Error $e) {
                     
                 }
             }
