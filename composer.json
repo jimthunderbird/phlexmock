@@ -20,7 +20,6 @@
     },
     "require-dev": {
         "nikic/php-parser" : "v1.1.0" 
-
     },
     "autoload": {
         "psr-0": {
@@ -28,4 +27,3 @@
         }
     }
 }
-
