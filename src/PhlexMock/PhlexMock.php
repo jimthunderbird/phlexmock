@@ -36,7 +36,7 @@ class PhlexMock
     public function start()
     {
         $this->version ++;
-        spl_autoload(array($this, 'loadClassIntoBuffer'), false, true);    
+        spl_autoload_register(array($this, 'loadClassIntoBuffer'), false, true);    
     }
 
     private function loadClassIntoBuffer($class)
