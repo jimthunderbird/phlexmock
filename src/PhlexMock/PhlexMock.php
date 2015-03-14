@@ -112,7 +112,7 @@ class PhlexMock
                 } else {
                     $namespace = "\\";
                 }
-                $classInfo->className = $namespace.trim(str_replace(array("<scalar:string>","</scalar:string>"),"",$codeASTXMLLines[$index + 17])); 
+                $classInfo->className = $namespace.trim(str_replace(array("<scalar:string>","</scalar:string>"),"",$codeASTXMLLines[$index + 11])); # for Php Parser 1.0.x it is $index + 11
                 $classInfo->methodInfos = array();
                 $classInfo->properties = array();
                 $classInfo->staticProperties = array();
