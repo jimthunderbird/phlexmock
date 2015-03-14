@@ -184,7 +184,11 @@ class PhlexMock
             $line = trim($codeLines[$classInfo->startLine - 1]);
             if (strpos($line, " extends ") !== FALSE) {
                 $lineComps = explode(" extends ", $line);
-                $classMap[$classInfo->className]->parentClass = "\\".$classInfo->namespace."\\".trim(explode(" ",$lineComps[1])[0]);
+                $namespace = "\\";
+                if ($classInfo->namespace !== "\\") {
+                   $namespace = "\\".$classInfo->namespace."\\";
+                }
+                $classMap[$classInfo->className]->parentClass = $namespace.trim(explode(" ",$lineComps[1])[0]);
             }
         }
 
