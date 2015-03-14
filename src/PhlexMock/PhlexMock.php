@@ -89,7 +89,7 @@ class PhlexMock
 
         $classMap = array();
 
-        $namespace = "";
+        $namespace = ""; 
         $className = "";
 
         foreach($codeASTXMLLines as $index => $line)
@@ -106,8 +106,14 @@ class PhlexMock
                     $classInfo->isAbstract = true;
                 }
                 $classInfo->endLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 5]);
+                if (strlen($namespace) > 0) {
+                    $namespace = "\\".$namespace."\\";
+                } else {
+                    $namespace = "\\";
+                }
                 $classInfo->namespace = $namespace;
-                $classInfo->className = "\\".$namespace."\\".trim(str_replace(array("<scalar:string>","</scalar:string>"),"",$codeASTXMLLines[$index + 11])); 
+                $classInfo->className = $namespace.trim(str_replace(array("<scalar:string>","</scalar:string>"),"",$codeASTXMLLines[$index + 11])); # for Php Parser 1.0.x it is $index + 11 
+                $classInfo->pureName = array_pop(explode("\\",$classInfo->className));
                 $classInfo->methodInfos = array();
                 $classInfo->properties = array();
                 $classInfo->staticProperties = array();
@@ -116,6 +122,8 @@ class PhlexMock
                 $classInfos[] = $classInfo;   
 
                 $classMap[$classInfo->className] = $classInfo;
+                //reset namespace to empty 
+                $namespace = "";
             } else if (strpos($line, "<node:Stmt_Property>") > 0) {
                 $propertyStartLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
                 $propertyCode = $codeLines[$propertyStartLine - 1];
@@ -176,7 +184,11 @@ class PhlexMock
             $line = trim($codeLines[$classInfo->startLine - 1]);
             if (strpos($line, " extends ") !== FALSE) {
                 $lineComps = explode(" extends ", $line);
-                $classMap[$classInfo->className]->parentClass = "\\".$classInfo->namespace."\\".trim(explode(" ",$lineComps[1])[0]);
+                $namespace = "\\";
+                if ($classInfo->namespace !== "\\") {
+                   $namespace = "\\".$classInfo->namespace."\\";
+                }
+                $classMap[$classInfo->className]->parentClass = $namespace.trim(explode(" ",$lineComps[1])[0]);
             }
         }
 
