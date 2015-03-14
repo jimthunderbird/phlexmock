@@ -122,6 +122,8 @@ class PhlexMock
                 $classInfos[] = $classInfo;   
 
                 $classMap[$classInfo->className] = $classInfo;
+                //reset namespace to empty 
+                $namespace = "";
             } else if (strpos($line, "<node:Stmt_Property>") > 0) {
                 $propertyStartLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
                 $propertyCode = $codeLines[$propertyStartLine - 1];
