@@ -89,7 +89,7 @@ class PhlexMock
 
         $classMap = array();
 
-        $namespace = "";
+        $namespace = ""; 
         $className = "";
 
         foreach($codeASTXMLLines as $index => $line)
@@ -107,7 +107,12 @@ class PhlexMock
                 }
                 $classInfo->endLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 5]);
                 $classInfo->namespace = $namespace;
-                $classInfo->className = "\\".$namespace."\\".trim(str_replace(array("<scalar:string>","</scalar:string>"),"",$codeASTXMLLines[$index + 11])); 
+                if (strlen($namespace) > 0) {
+                    $namespace = "\\".$namespace."\\";
+                } else {
+                    $namespace = "\\";
+                }
+                $classInfo->className = $namespace.trim(str_replace(array("<scalar:string>","</scalar:string>"),"",$codeASTXMLLines[$index + 17])); 
                 $classInfo->methodInfos = array();
                 $classInfo->properties = array();
                 $classInfo->staticProperties = array();
