@@ -83,6 +83,8 @@ class PhlexMock
                             //now add all methods into hash  
 
                             $methodHashCode = "\n\n";
+                            $methodHashCode .= 'if ($this->methodHashDefined == 1) { return; }'."\n\n";
+                            $methodHashCode .= '$this->methodHashDefined = 1;'."\n\n";
                             foreach($classInfo->methodInfos as $name => $methodInfo) {
                                 $methodHashCode .= '$this->phlexmockMethodHash['."'".$name."']".' = '.str_replace($name, 'function',$methodInfo->name).$methodInfo->code.";\n";
 
@@ -93,12 +95,18 @@ class PhlexMock
                             }
                             $methodHashCode .= "\n\n";
 
-                            $defineMethodHashCode = 'public function phlexmockDefineMethodHash() {'."\n";
+                            $defineMethodHashCode = '';
+                            $defineMethodHashCode .= 'private $methodHashDefined = 0;'."\n";
+                            $defineMethodHashCode .= 'public function phlexmockDefineMethodHash() {'."\n";
                             if (isset($classInfo->parentClass)) { //this class has a parent class 
                                $defineMethodHashCode .= 'parent::phlexmockDefineMethodHash();'."\n"; 
                             }
                             $defineMethodHashCode .= $methodHashCode;
-                            $defineMethodHashCode .= '}'."\n";
+                            $defineMethodHashCode .= '}'."\n\n";
+
+                            $defineMethodHashCode .= 'public function phlexmocMethod($name, $closure) {'."\n";
+                            $defineMethodHashCode .= '$this->phlexmockMethodHash[$name] = $closure;'."\n";
+                            $defineMethodHashCode .= '}'."\n"; 
 
 
                             //add the magic method __call 
