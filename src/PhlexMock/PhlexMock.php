@@ -12,11 +12,14 @@ class PhlexMock
     private $parser;
     private $serializer;
 
+    private $classMethodMap;
+
     public function __construct()
     {
         $this->classSearchPaths = [];
         $this->classExtension = [];
         $this->classBuffer = [];
+        $this->classMethodMap = [];
         $this->version = 0;
     }
 
@@ -31,16 +34,17 @@ class PhlexMock
     }
 
     /**
-     * define a custom method
+     * define a custom method for a class
      */
-    public function method($name, $callback)
+    public function method($class, $method, $callback)
     {
-        
+       $this->classMethodMap[$class][$method] = $callback;          
     }
 
     public function start()
     {
         $this->version ++;
+        //set up the autoloader
         spl_autoload_register(array($this, 'loadClassIntoBuffer'), false, true);    
         //initiate parser and serializer after autoloader is registered
         $this->parser = new \PhpParser\Parser(new \PhpParser\Lexer());
@@ -72,14 +76,22 @@ class PhlexMock
                         $codeLines = explode("\n", $classCode);
                         $codeASTXMLLines = explode("\n", $codeASTXML);
                         $classMap = $this->getClassMap($codeLines, $codeASTXMLLines);
-                        print_r($classMap);exit();
+                        //now reopen some methods ... 
+                        
+                        //add to class buffer
+                        if (!isset($this->classBuffer[$classFile])) {
+                            $this->classBuffer[$classFile] = $classMap;
+                            //now do the code transform 
+                            $classCode = str_replace('<?php','', $classCode);
+                            eval($classCode);
+                        }
+
                     } catch(\PhpParser\Error $e) {
 
                     }
                 }
-                $this->classBuffer[] = $classFile;
             }
-        }    
+        }   
     }
 
     private function getClassMap($codeLines, $codeASTXMLLines)
@@ -178,7 +190,7 @@ class PhlexMock
                 $classMap[$className]->methodInfos[$classMethodInfo->pureName] = $classMethodInfo;
             }
         }
-        
+
         //now figure out the parent classes for each class
         foreach($classInfos as $index => $classInfo) {
             $line = trim($codeLines[$classInfo->startLine - 1]);
@@ -186,7 +198,7 @@ class PhlexMock
                 $lineComps = explode(" extends ", $line);
                 $namespace = "\\";
                 if ($classInfo->namespace !== "\\") {
-                   $namespace = "\\".$classInfo->namespace."\\";
+                    $namespace = "\\".$classInfo->namespace."\\";
                 }
                 $classMap[$classInfo->className]->parentClass = $namespace.trim(explode(" ",$lineComps[1])[0]);
             }
