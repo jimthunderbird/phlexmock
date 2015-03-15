@@ -8,9 +8,9 @@ class PhlexMock
 {
     private $classSearchPaths;
     private $classExtension;
-    private $classBuffer;
     private $parser;
     private $serializer;
+    private $closureAnalyser;
 
     private $classMethodMap;
 
@@ -18,7 +18,6 @@ class PhlexMock
     {
         $this->classSearchPaths = [];
         $this->classExtension = [];
-        $this->classBuffer = [];
         $this->classMethodMap = [];
         $this->version = 0;
     }
@@ -46,9 +45,10 @@ class PhlexMock
         $this->version ++;
         //set up the autoloader
         spl_autoload_register(array($this, 'loadClassIntoBuffer'), false, true);    
-        //initiate parser and serializer after autoloader is registered
+        //initiate parser and serializer after autoloader is registered 
         $this->parser = new \PhpParser\Parser(new \PhpParser\Lexer());
         $this->serializer = new \PhpParser\Serializer\XML();
+        $this->closureAnalyser = new \PhlexMock\ClosureAnalyser();
     }
 
     private function loadClassIntoBuffer($class)
@@ -76,16 +76,34 @@ class PhlexMock
                         $codeLines = explode("\n", $classCode);
                         $codeASTXMLLines = explode("\n", $codeASTXML);
                         $classMap = $this->getClassMap($codeLines, $codeASTXMLLines);
-                        //now reopen some methods ... 
-                        
-                        //add to class buffer
-                        if (!isset($this->classBuffer[$classFile])) {
-                            $this->classBuffer[$classFile] = $classMap;
-                            //now do the code transform 
-                            $classCode = str_replace('<?php','', $classCode);
-                            eval($classCode);
+
+                        //now reopen all methods ... 
+
+                        foreach($classMap as $className => $classInfo) {
+                            //now add all methods into hash  
+
+                            $methodHashCode = "\n\n";
+                            $methodHashCode .= '$this->phlexmockMethodHash = [];'."\n";
+                            foreach($classInfo->methodInfos as $name => $methodInfo) {
+                                $methodHashCode .= '$this->phlexmockMethodHash['."'".$name."']".' = '.str_replace($name, 'function',$methodInfo->name).$methodInfo->code.";\n";
+
+                                //now need to remove all existing method code 
+                                for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
+                                    $codeLines[$l - 1] = "";
+                                }
+                            }
+                            $methodHashCode .= "\n\n";
+
+                            //add the magic method __call 
+                            $magicMethodCode = "\n"."\n".'public function __call($name, $args){'."\n".$methodHashCode.' return call_user_func_array($this->phlexmockMethodHash[$name], $args); '."\n".'}'."\n\n";
+                            $codeLines[$classInfo->startLine + 1] = $magicMethodCode.$codeLines[$classInfo->startLine + 1];
+
                         }
 
+                        $classCode = implode("\n",$codeLines);
+                        //now eval the class code 
+                        $classCode = str_replace('<?php','',$classCode);
+                        eval($classCode);
                     } catch(\PhpParser\Error $e) {
 
                     }
@@ -168,6 +186,9 @@ class PhlexMock
                 $startLineContent = $codeLines[$classMethodInfo->startLine - 1];
                 $classMethodInfo->name = trim(explode("function ",$startLineContent)[1]);
                 $classMethodInfo->pureName = explode(" ", str_replace("(", " ", $classMethodInfo->name))[0];
+
+                $classMethodInfo->code = implode("\n",array_slice($codeLines, $classMethodInfo->startLine, $classMethodInfo->endLine - $classMethodInfo->startLine));
+
                 //now figure out where it is public, protected or private 
 
                 //find out all methods belongs to this class
