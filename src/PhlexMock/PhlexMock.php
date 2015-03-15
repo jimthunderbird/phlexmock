@@ -76,14 +76,13 @@ class PhlexMock
                         $codeLines = explode("\n", $classCode);
                         $codeASTXMLLines = explode("\n", $codeASTXML);
                         $classMap = $this->getClassMap($codeLines, $codeASTXMLLines);
-
+ 
                         //now reopen all methods ... 
 
                         foreach($classMap as $className => $classInfo) {
                             //now add all methods into hash  
 
                             $methodHashCode = "\n\n";
-                            $methodHashCode .= '$this->phlexmockMethodHash = [];'."\n";
                             foreach($classInfo->methodInfos as $name => $methodInfo) {
                                 $methodHashCode .= '$this->phlexmockMethodHash['."'".$name."']".' = '.str_replace($name, 'function',$methodInfo->name).$methodInfo->code.";\n";
 
@@ -94,15 +93,24 @@ class PhlexMock
                             }
                             $methodHashCode .= "\n\n";
 
+                            $defineMethodHashCode = 'public function phlexmockDefineMethodHash() {'."\n";
+                            if (isset($classInfo->parentClass)) { //this class has a parent class 
+                               $defineMethodHashCode .= 'parent::phlexmockDefineMethodHash();'."\n"; 
+                            }
+                            $defineMethodHashCode .= $methodHashCode;
+                            $defineMethodHashCode .= '}'."\n";
+
+
                             //add the magic method __call 
-                            $magicMethodCode = "\n"."\n".'public function __call($name, $args){'."\n".$methodHashCode.' return call_user_func_array($this->phlexmockMethodHash[$name], $args); '."\n".'}'."\n\n";
-                            $codeLines[$classInfo->startLine + 1] = $magicMethodCode.$codeLines[$classInfo->startLine + 1];
+                            $magicMethodCode = "\n"."\n".'public function __call($name, $args){'."\n".'$this->phlexmockDefineMethodHash();'."\n".' return call_user_func_array($this->phlexmockMethodHash[$name], $args); '."\n".'}'."\n\n";
+                            $codeLines[$classInfo->startLine + 1] = $defineMethodHashCode."\n\n".$magicMethodCode.$codeLines[$classInfo->startLine + 1];
 
                         }
 
                         $classCode = implode("\n",$codeLines);
                         //now eval the class code 
                         $classCode = str_replace('<?php','',$classCode);
+                        $classCode = $this->removeBlankLines($classCode);
                         eval($classCode);
                     } catch(\PhpParser\Error $e) {
 
@@ -228,4 +236,12 @@ class PhlexMock
         return $classMap;
 
     }
+
+    private function removeBlankLines($content)
+    {
+        //now remove all blank lines, credit: http://stackoverflow.com/questions/709669/how-do-i-remove-blank-lines-from-text-in-php   
+        $content = preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $content);
+        return $content;
+    }
+
 }
