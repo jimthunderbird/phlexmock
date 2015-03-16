@@ -20,11 +20,17 @@ class PhlexMock
         $this->classExtension = [];
         $this->classMethodMap = [];
         $this->version = 0;
+        //set up the autoloader
+        spl_autoload_register(array($this, 'loadClassIntoBuffer'), false, true);    
+        //initiate parser and serializer after autoloader is registered 
+        $this->parser = new \PhpParser\Parser(new \PhpParser\Lexer());
+        $this->serializer = new \PhpParser\Serializer\XML();
+        $this->closureAnalyser = new \PhlexMock\ClosureAnalyser();
     }
 
-    public function addClassSearchPath($classSearchPath)
+    public function setClassSearchPaths($classSearchPaths)
     {
-        $this->classSearchPaths[] = $classSearchPath;
+        $this->classSearchPaths = $classSearchPaths;
     }
 
     public function setClassExtension($classExtension)
@@ -38,17 +44,6 @@ class PhlexMock
     public function method($class, $method, $callback)
     {
        $this->classMethodMap[$class][$method] = $callback;          
-    }
-
-    public function start()
-    {
-        $this->version ++;
-        //set up the autoloader
-        spl_autoload_register(array($this, 'loadClassIntoBuffer'), false, true);    
-        //initiate parser and serializer after autoloader is registered 
-        $this->parser = new \PhpParser\Parser(new \PhpParser\Lexer());
-        $this->serializer = new \PhpParser\Serializer\XML();
-        $this->closureAnalyser = new \PhlexMock\ClosureAnalyser();
     }
 
     private function loadClassIntoBuffer($class)
