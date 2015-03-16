@@ -58,55 +58,7 @@ class PhlexMock
                 } else {
                     //this is custom class, perform static code analysis 
                     try {
-                        $classCode = file_get_contents($classFile);
-                        $stmts = $this->parser->parse($classCode);
-                        $codeASTXML = $this->serializer->serialize($stmts); 
-                        $codeLines = explode("\n", $classCode);
-                        $codeASTXMLLines = explode("\n", $codeASTXML);
-                        $classMap = $this->getClassMap($codeLines, $codeASTXMLLines);
-
-                        //now reopen all methods ... 
-
-                        foreach($classMap as $className => $classInfo) {
-                            //now add all methods into hash  
-
-                            $methodHashCode = "\n\n";
-                            $methodHashCode .= 'if ($this->methodHashDefined == 1) { return; }'."\n\n";
-                            $methodHashCode .= '$this->methodHashDefined = 1;'."\n\n";
-                            foreach($classInfo->methodInfos as $name => $methodInfo) {
-                                $methodHashCode .= '$this->phlexmockMethodHash['."'".$name."']".' = '.str_replace($name, 'function',$methodInfo->name).$methodInfo->code.";\n";
-
-                                //now need to remove all existing method code 
-                                for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
-                                    $codeLines[$l - 1] = "";
-                                }
-                            }
-                            $methodHashCode .= "\n\n";
-
-                            $defineMethodHashCode = '';
-                            $defineMethodHashCode .= 'private $methodHashDefined = 0;'."\n";
-                            $defineMethodHashCode .= 'public function phlexmockDefineMethodHash() {'."\n";
-                            if (isset($classInfo->parentClass)) { //this class has a parent class 
-                                $defineMethodHashCode .= 'parent::phlexmockDefineMethodHash();'."\n"; 
-                            }
-                            $defineMethodHashCode .= $methodHashCode;
-                            $defineMethodHashCode .= '}'."\n\n";
-
-                            $defineMethodHashCode .= 'public function phlexmocMethod($name, $closure) {'."\n";
-                            $defineMethodHashCode .= '$this->phlexmockMethodHash[$name] = $closure;'."\n";
-                            $defineMethodHashCode .= '}'."\n"; 
-
-
-                            //add the magic method __call 
-                            $magicMethodCode = "\n"."\n".'public function __call($name, $args){'."\n".'$this->phlexmockDefineMethodHash();'."\n".' return call_user_func_array($this->phlexmockMethodHash[$name], $args); '."\n".'}'."\n\n";
-                            $codeLines[$classInfo->startLine + 1] = $defineMethodHashCode."\n\n".$magicMethodCode.$codeLines[$classInfo->startLine + 1];
-
-                        }
-
-                        $classCode = implode("\n",$codeLines);
-                        //now eval the class code 
-                        $classCode = str_replace('<?php','',$classCode);
-                        $classCode = $this->removeBlankLines($classCode);
+                        $classCode = $this->getFinalClassCode($classFile);
                         eval($classCode);
                     } catch(\PhpParser\Error $e) {
 
@@ -116,6 +68,61 @@ class PhlexMock
                 }
             } 
         }
+    }
+
+    private function getFinalClassCode($classFile)
+    {
+        $classCode = file_get_contents($classFile);
+        $stmts = $this->parser->parse($classCode);
+        $codeASTXML = $this->serializer->serialize($stmts); 
+        $codeLines = explode("\n", $classCode);
+        $codeASTXMLLines = explode("\n", $codeASTXML);
+        $classMap = $this->getClassMap($codeLines, $codeASTXMLLines);
+
+        //now reopen all methods ... 
+
+        foreach($classMap as $className => $classInfo) {
+            //now add all methods into hash  
+
+            $methodHashCode = "\n\n";
+            $methodHashCode .= 'if ($this->methodHashDefined == 1) { return; }'."\n\n";
+            $methodHashCode .= '$this->methodHashDefined = 1;'."\n\n";
+            foreach($classInfo->methodInfos as $name => $methodInfo) {
+                $methodHashCode .= '$this->phlexmockMethodHash['."'".$name."']".' = '.str_replace($name, 'function',$methodInfo->name).$methodInfo->code.";\n";
+
+                //now need to remove all existing method code 
+                for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
+                    $codeLines[$l - 1] = "";
+                }
+            }
+            $methodHashCode .= "\n\n";
+
+            $defineMethodHashCode = '';
+            $defineMethodHashCode .= 'private $methodHashDefined = 0;'."\n";
+            $defineMethodHashCode .= 'public function phlexmockDefineMethodHash() {'."\n";
+            if (isset($classInfo->parentClass)) { //this class has a parent class 
+                $defineMethodHashCode .= 'parent::phlexmockDefineMethodHash();'."\n"; 
+            }
+            $defineMethodHashCode .= $methodHashCode;
+            $defineMethodHashCode .= '}'."\n\n";
+
+            $defineMethodHashCode .= 'public function phlexmocMethod($name, $closure) {'."\n";
+            $defineMethodHashCode .= '$this->phlexmockMethodHash[$name] = $closure;'."\n";
+            $defineMethodHashCode .= '}'."\n"; 
+
+
+            //add the magic method __call 
+            $magicMethodCode = "\n"."\n".'public function __call($name, $args){'."\n".'$this->phlexmockDefineMethodHash();'."\n".' return call_user_func_array($this->phlexmockMethodHash[$name], $args); '."\n".'}'."\n\n";
+            $codeLines[$classInfo->startLine + 1] = $defineMethodHashCode."\n\n".$magicMethodCode.$codeLines[$classInfo->startLine + 1];
+
+        }
+
+        $classCode = implode("\n",$codeLines);
+        //now eval the class code 
+        $classCode = str_replace('<?php','',$classCode);
+        $classCode = $this->removeBlankLines($classCode);
+
+        return $classCode;
     }
 
     private function getClassMap($codeLines, $codeASTXMLLines)
