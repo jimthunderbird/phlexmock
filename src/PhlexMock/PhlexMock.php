@@ -8,24 +8,20 @@ class PhlexMock
 {
     private $classSearchPaths;
     private $classExtension;
+
+    private $fileIndexBuffer;
+
     private $parser;
     private $serializer;
     private $closureAnalyser;
-
-    private $classMethodMap;
 
     public function __construct()
     {
         $this->classSearchPaths = [];
         $this->classExtension = [];
         $this->classMethodMap = [];
+        $this->fileIndex = [];
         $this->version = 0;
-        //set up the autoloader
-        spl_autoload_register(array($this, 'loadClassIntoBuffer'), false, true);    
-        //initiate parser and serializer after autoloader is registered 
-        $this->parser = new \PhpParser\Parser(new \PhpParser\Lexer());
-        $this->serializer = new \PhpParser\Serializer\XML();
-        $this->closureAnalyser = new \PhlexMock\ClosureAnalyser();
     }
 
     public function setClassSearchPaths($classSearchPaths)
@@ -38,32 +34,29 @@ class PhlexMock
         $this->classExtension = $classExtension; 
     }
 
-    /**
-     * define a custom method for a class
-     */
-    public function method($class, $method, $callback)
+    public function start()
     {
-       $this->classMethodMap[$class][$method] = $callback;          
+        $this->generateFileIndex();
+        //set up the autoloader
+        spl_autoload_register(array($this, 'loadClassIntoBuffer'), false, true);    
+        //initiate parser and serializer after autoloader is registered 
+        $this->parser = new \PhpParser\Parser(new \PhpParser\Lexer());
+        $this->serializer = new \PhpParser\Serializer\XML();
+        $this->closureAnalyser = new \PhlexMock\ClosureAnalyser();
     }
 
     private function loadClassIntoBuffer($class)
     {
-        foreach($this->classSearchPaths as $classSearchPath) {
-            $nameStr = '';
-            foreach($this->classExtension as $index => $extension) {
-                if ($index == 0) {
-                    $nameStr .= "-name '$class.".$extension."' -o ";
+        $class = str_replace("\\","/",$class);
+
+        $classFile = "";
+        foreach($this->fileIndex as $file) {
+            if (strpos($file,"$class.") !== FALSE) { //tricky, need to add dot at the end!
+                $classFile = $file;
+                if (strpos($classFile,"/vendor/") !== FALSE) { #this is third party lilbrary, we need to load them up 
+                    require_once $classFile;
                 } else {
-                    $nameStr .= "-name '$class.".$extension."'";
-                }
-            }
-            $cmd = 'find '.$classSearchPath.' -type f '.$nameStr;
-            $classFile = trim(shell_exec($cmd));
-            if (strlen($classFile) > 0) {
-                if (strpos($classFile,"/vendor/") !== FALSE) { #this is third party lilbrary, we need to load them up
-                    $classCode = file_get_contents($classFile);
-                    eval($classCode);
-                } else { //this is custom class, perform static code analysis  
+                    //this is custom class, perform static code analysis 
                     try {
                         $classCode = file_get_contents($classFile);
                         $stmts = $this->parser->parse($classCode);
@@ -71,7 +64,7 @@ class PhlexMock
                         $codeLines = explode("\n", $classCode);
                         $codeASTXMLLines = explode("\n", $codeASTXML);
                         $classMap = $this->getClassMap($codeLines, $codeASTXMLLines);
- 
+
                         //now reopen all methods ... 
 
                         foreach($classMap as $className => $classInfo) {
@@ -94,7 +87,7 @@ class PhlexMock
                             $defineMethodHashCode .= 'private $methodHashDefined = 0;'."\n";
                             $defineMethodHashCode .= 'public function phlexmockDefineMethodHash() {'."\n";
                             if (isset($classInfo->parentClass)) { //this class has a parent class 
-                               $defineMethodHashCode .= 'parent::phlexmockDefineMethodHash();'."\n"; 
+                                $defineMethodHashCode .= 'parent::phlexmockDefineMethodHash();'."\n"; 
                             }
                             $defineMethodHashCode .= $methodHashCode;
                             $defineMethodHashCode .= '}'."\n\n";
@@ -118,9 +111,10 @@ class PhlexMock
                     } catch(\PhpParser\Error $e) {
 
                     }
+
                 }
-            }
-        }   
+            } 
+        }
     }
 
     private function getClassMap($codeLines, $codeASTXMLLines)
@@ -238,6 +232,26 @@ class PhlexMock
 
         return $classMap;
 
+    }
+
+    private function generateFileIndex()
+    {
+        $nameStr = '';
+        foreach($this->classExtension as $index => $extension) {
+            if ($index == 0) {
+                $nameStr .= "-name '*.".$extension."' -o ";
+            } else {
+                $nameStr .= "-name '*.".$extension."'";
+            }
+        }
+
+        $files = [];
+        foreach($this->classSearchPaths as $classSearchPath) {
+            $cmd = 'find '.$classSearchPath.' -type f '.$nameStr;
+            $files = array_merge($files, explode("\n",trim(shell_exec($cmd))));
+        }
+
+        $this->fileIndex = $files;
     }
 
     private function removeBlankLines($content)
