@@ -112,6 +112,7 @@ class PhlexMock
 
                     }
 
+                    break;
                 }
             } 
         }
