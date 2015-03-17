@@ -55,6 +55,8 @@ class PhlexMock
                 $classFile = $file;
                 if (strpos($classFile,"/vendor/") !== FALSE) { #this is third party lilbrary, we need to load them up 
                     require_once $classFile;
+                } else if (strpos($class, 'PhlexMock') !== FALSE) { 
+                    require_once $classFile;
                 } else {
                     //this is custom class, perform static code analysis 
                     try {
@@ -85,34 +87,37 @@ class PhlexMock
             //now add all methods into hash  
 
             $methodHashCode = "\n\n";
-            $methodHashCode .= 'if ($this->methodHashDefined == 1) { return; }'."\n\n";
-            $methodHashCode .= '$this->methodHashDefined = 1;'."\n\n";
             foreach($classInfo->methodInfos as $name => $methodInfo) {
-                $methodHashCode .= '$this->phlexmockMethodHash['."'".$name."']".' = '.str_replace($name, 'function',$methodInfo->name).$methodInfo->code.";\n";
-
-                //now need to remove all existing method code 
-                for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
-                    $codeLines[$l - 1] = "";
+                if ($methodInfo->isStatic === FALSE) { //make sure they are instance methods
+                    $methodHashCode .= "\$GLOBALS['phlexmock_instance_method_hash']['$className']['$name'] = ".str_replace($name, 'function',$methodInfo->name).$methodInfo->code.";\n";
+                    //now need to remove all existing method code 
+                    for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
+                        $codeLines[$l - 1] = "";
+                    }
                 }
             }
             $methodHashCode .= "\n\n";
 
             $defineMethodHashCode = '';
-            $defineMethodHashCode .= 'private $methodHashDefined = 0;'."\n";
-            $defineMethodHashCode .= 'public function phlexmockDefineMethodHash() {'."\n";
-            if (isset($classInfo->parentClass)) { //this class has a parent class 
-                $defineMethodHashCode .= 'parent::phlexmockDefineMethodHash();'."\n"; 
-            }
-            $defineMethodHashCode .= $methodHashCode;
-            $defineMethodHashCode .= '}'."\n\n";
 
-            $defineMethodHashCode .= 'public function phlexmocMethod($name, $closure) {'."\n";
-            $defineMethodHashCode .= '$this->phlexmockMethodHash[$name] = $closure;'."\n";
+            $defineMethodHashCode .= 'public function phlexmockInstanceMethod($name, $closure) {'."\n";
+            $defineMethodHashCode .= "\$GLOBALS['phlexmock_instance_method_hash']['$className'][\$name] = \$closure;\n\n";
             $defineMethodHashCode .= '}'."\n"; 
 
-
             //add the magic method __call 
-            $magicMethodCode = "\n"."\n".'public function __call($name, $args){'."\n".'$this->phlexmockDefineMethodHash();'."\n".' return call_user_func_array($this->phlexmockMethodHash[$name], $args); '."\n".'}'."\n\n";
+$magicMethodCode = "
+public function __call(\$name, \$args){ 
+    if (isset(\$GLOBALS['phlexmock_instance_method_hash']['$className'][\$name])){
+        return call_user_func_array(\$GLOBALS['phlexmock_instance_method_hash']['$className'][\$name], \$args); 
+    } else {
+        if (get_parent_class() !== FALSE) {
+            return parent::__call(\$name, \$args);
+        }
+    }
+}
+";
+
+            $codeLines[$classInfo->startLine - 1] = $methodHashCode."\n\n".$codeLines[$classInfo->startLine - 1];
             $codeLines[$classInfo->startLine + 1] = $defineMethodHashCode."\n\n".$magicMethodCode.$codeLines[$classInfo->startLine + 1];
 
         }
@@ -121,7 +126,6 @@ class PhlexMock
         //now eval the class code 
         $classCode = str_replace('<?php','',$classCode);
         $classCode = $this->removeBlankLines($classCode);
-
         return $classCode;
     }
 
@@ -269,4 +273,4 @@ class PhlexMock
         return $content;
     }
 
-}
+    }
