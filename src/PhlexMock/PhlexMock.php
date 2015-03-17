@@ -8,21 +8,25 @@ class PhlexMock
 {
     private $classSearchPaths;
     private $classExtension;
-    private $classBuffer;
+
+    private $fileIndexBuffer;
+
     private $parser;
     private $serializer;
+    private $closureAnalyser;
 
     public function __construct()
     {
         $this->classSearchPaths = [];
         $this->classExtension = [];
-        $this->classBuffer = [];
+        $this->classMethodMap = [];
+        $this->fileIndex = [];
         $this->version = 0;
     }
 
-    public function addClassSearchPath($classSearchPath)
+    public function setClassSearchPaths($classSearchPaths)
     {
-        $this->classSearchPaths[] = $classSearchPath;
+        $this->classSearchPaths = $classSearchPaths;
     }
 
     public function setClassExtension($classExtension)
@@ -30,56 +34,95 @@ class PhlexMock
         $this->classExtension = $classExtension; 
     }
 
-    /**
-     * define a custom method
-     */
-    public function method($name, $callback)
-    {
-        
-    }
-
     public function start()
     {
-        $this->version ++;
+        $this->generateFileIndex();
+        //set up the autoloader
         spl_autoload_register(array($this, 'loadClassIntoBuffer'), false, true);    
-        //initiate parser and serializer after autoloader is registered
+        //initiate parser and serializer after autoloader is registered 
         $this->parser = new \PhpParser\Parser(new \PhpParser\Lexer());
         $this->serializer = new \PhpParser\Serializer\XML();
+        $this->closureAnalyser = new \PhlexMock\ClosureAnalyser();
     }
 
     private function loadClassIntoBuffer($class)
     {
-        foreach($this->classSearchPaths as $classSearchPath) {
-            $nameStr = '';
-            foreach($this->classExtension as $index => $extension) {
-                if ($index == 0) {
-                    $nameStr .= "-name '$class.".$extension."' -o ";
+        $class = str_replace("\\","/",$class);
+
+        $classFile = "";
+        foreach($this->fileIndex as $file) {
+            if (strpos($file,"$class.") !== FALSE) { //tricky, need to add dot at the end!
+                $classFile = $file;
+                if (strpos($classFile,"/vendor/") !== FALSE) { #this is third party lilbrary, we need to load them up 
+                    require_once $classFile;
                 } else {
-                    $nameStr .= "-name '$class.".$extension."'";
-                }
-            }
-            $cmd = 'find '.$classSearchPath.' -type f '.$nameStr;
-            $classFile = trim(shell_exec($cmd));
-            if (strlen($classFile) > 0) {
-                if (strpos($classFile,"/vendor/") !== FALSE) { #this is third party lilbrary, we need to load them up
-                    $classCode = file_get_contents($classFile);
-                    eval($classCode);
-                } else { //this is custom class, perform static code analysis  
+                    //this is custom class, perform static code analysis 
                     try {
-                        $classCode = file_get_contents($classFile);
-                        $stmts = $this->parser->parse($classCode);
-                        $codeASTXML = $this->serializer->serialize($stmts); 
-                        $codeLines = explode("\n", $classCode);
-                        $codeASTXMLLines = explode("\n", $codeASTXML);
-                        $classMap = $this->getClassMap($codeLines, $codeASTXMLLines);
-                        print_r($classMap);exit();
+                        $classCode = $this->getFinalClassCode($classFile);
+                        eval($classCode);
                     } catch(\PhpParser\Error $e) {
 
                     }
+
+                    break;
                 }
-                $this->classBuffer[] = $classFile;
+            } 
+        }
+    }
+
+    private function getFinalClassCode($classFile)
+    {
+        $classCode = file_get_contents($classFile);
+        $stmts = $this->parser->parse($classCode);
+        $codeASTXML = $this->serializer->serialize($stmts); 
+        $codeLines = explode("\n", $classCode);
+        $codeASTXMLLines = explode("\n", $codeASTXML);
+        $classMap = $this->getClassMap($codeLines, $codeASTXMLLines);
+
+        //now reopen all methods ... 
+
+        foreach($classMap as $className => $classInfo) {
+            //now add all methods into hash  
+
+            $methodHashCode = "\n\n";
+            $methodHashCode .= 'if ($this->methodHashDefined == 1) { return; }'."\n\n";
+            $methodHashCode .= '$this->methodHashDefined = 1;'."\n\n";
+            foreach($classInfo->methodInfos as $name => $methodInfo) {
+                $methodHashCode .= '$this->phlexmockMethodHash['."'".$name."']".' = '.str_replace($name, 'function',$methodInfo->name).$methodInfo->code.";\n";
+
+                //now need to remove all existing method code 
+                for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
+                    $codeLines[$l - 1] = "";
+                }
             }
-        }    
+            $methodHashCode .= "\n\n";
+
+            $defineMethodHashCode = '';
+            $defineMethodHashCode .= 'private $methodHashDefined = 0;'."\n";
+            $defineMethodHashCode .= 'public function phlexmockDefineMethodHash() {'."\n";
+            if (isset($classInfo->parentClass)) { //this class has a parent class 
+                $defineMethodHashCode .= 'parent::phlexmockDefineMethodHash();'."\n"; 
+            }
+            $defineMethodHashCode .= $methodHashCode;
+            $defineMethodHashCode .= '}'."\n\n";
+
+            $defineMethodHashCode .= 'public function phlexmocMethod($name, $closure) {'."\n";
+            $defineMethodHashCode .= '$this->phlexmockMethodHash[$name] = $closure;'."\n";
+            $defineMethodHashCode .= '}'."\n"; 
+
+
+            //add the magic method __call 
+            $magicMethodCode = "\n"."\n".'public function __call($name, $args){'."\n".'$this->phlexmockDefineMethodHash();'."\n".' return call_user_func_array($this->phlexmockMethodHash[$name], $args); '."\n".'}'."\n\n";
+            $codeLines[$classInfo->startLine + 1] = $defineMethodHashCode."\n\n".$magicMethodCode.$codeLines[$classInfo->startLine + 1];
+
+        }
+
+        $classCode = implode("\n",$codeLines);
+        //now eval the class code 
+        $classCode = str_replace('<?php','',$classCode);
+        $classCode = $this->removeBlankLines($classCode);
+
+        return $classCode;
     }
 
     private function getClassMap($codeLines, $codeASTXMLLines)
@@ -89,7 +132,7 @@ class PhlexMock
 
         $classMap = array();
 
-        $namespace = "";
+        $namespace = ""; 
         $className = "";
 
         foreach($codeASTXMLLines as $index => $line)
@@ -106,8 +149,14 @@ class PhlexMock
                     $classInfo->isAbstract = true;
                 }
                 $classInfo->endLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 5]);
+                if (strlen($namespace) > 0) {
+                    $namespace = "\\".$namespace."\\";
+                } else {
+                    $namespace = "\\";
+                }
                 $classInfo->namespace = $namespace;
-                $classInfo->className = "\\".$namespace."\\".trim(str_replace(array("<scalar:string>","</scalar:string>"),"",$codeASTXMLLines[$index + 11])); 
+                $classInfo->className = $namespace.trim(str_replace(array("<scalar:string>","</scalar:string>"),"",$codeASTXMLLines[$index + 11])); # for Php Parser 1.0.x it is $index + 11 
+                $classInfo->pureName = array_pop(explode("\\",$classInfo->className));
                 $classInfo->methodInfos = array();
                 $classInfo->properties = array();
                 $classInfo->staticProperties = array();
@@ -116,6 +165,8 @@ class PhlexMock
                 $classInfos[] = $classInfo;   
 
                 $classMap[$classInfo->className] = $classInfo;
+                //reset namespace to empty 
+                $namespace = "";
             } else if (strpos($line, "<node:Stmt_Property>") > 0) {
                 $propertyStartLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
                 $propertyCode = $codeLines[$propertyStartLine - 1];
@@ -148,6 +199,9 @@ class PhlexMock
                 $startLineContent = $codeLines[$classMethodInfo->startLine - 1];
                 $classMethodInfo->name = trim(explode("function ",$startLineContent)[1]);
                 $classMethodInfo->pureName = explode(" ", str_replace("(", " ", $classMethodInfo->name))[0];
+
+                $classMethodInfo->code = implode("\n",array_slice($codeLines, $classMethodInfo->startLine, $classMethodInfo->endLine - $classMethodInfo->startLine));
+
                 //now figure out where it is public, protected or private 
 
                 //find out all methods belongs to this class
@@ -170,17 +224,49 @@ class PhlexMock
                 $classMap[$className]->methodInfos[$classMethodInfo->pureName] = $classMethodInfo;
             }
         }
-        
+
         //now figure out the parent classes for each class
         foreach($classInfos as $index => $classInfo) {
             $line = trim($codeLines[$classInfo->startLine - 1]);
             if (strpos($line, " extends ") !== FALSE) {
                 $lineComps = explode(" extends ", $line);
-                $classMap[$classInfo->className]->parentClass = "\\".$classInfo->namespace."\\".trim(explode(" ",$lineComps[1])[0]);
+                $namespace = "\\";
+                if ($classInfo->namespace !== "\\") {
+                    $namespace = "\\".$classInfo->namespace."\\";
+                }
+                $classMap[$classInfo->className]->parentClass = $namespace.trim(explode(" ",$lineComps[1])[0]);
             }
         }
 
         return $classMap;
 
     }
+
+    private function generateFileIndex()
+    {
+        $nameStr = '';
+        foreach($this->classExtension as $index => $extension) {
+            if ($index == 0) {
+                $nameStr .= "-name '*.".$extension."' -o ";
+            } else {
+                $nameStr .= "-name '*.".$extension."'";
+            }
+        }
+
+        $files = [];
+        foreach($this->classSearchPaths as $classSearchPath) {
+            $cmd = 'find '.$classSearchPath.' -type f '.$nameStr;
+            $files = array_merge($files, explode("\n",trim(shell_exec($cmd))));
+        }
+
+        $this->fileIndex = $files;
+    }
+
+    private function removeBlankLines($content)
+    {
+        //now remove all blank lines, credit: http://stackoverflow.com/questions/709669/how-do-i-remove-blank-lines-from-text-in-php   
+        $content = preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $content);
+        return $content;
+    }
+
 }

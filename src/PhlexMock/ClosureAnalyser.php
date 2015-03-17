@@ -1,4 +1,7 @@
-<?php
+<?php 
+
+namespace PhlexMock;
+
 class ClosureAnalyser
 {
     private $closure;
