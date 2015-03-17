@@ -102,9 +102,15 @@ class PhlexMock
 
             $defineMethodHashCode = '';
 
-            $defineMethodHashCode .= 'public function phlexmockInstanceMethod($name, $closure) {'."\n";
-            $defineMethodHashCode .= "\$GLOBALS['phlexmock_instance_method_hash']['$className'][\$name] = \$closure;\n\n";
-            $defineMethodHashCode .= '}'."\n"; 
+            //add method to define instance method
+            $defineMethodHashCode .= "public function phlexmockInstanceMethod(\$name, \$closure) {
+    \$GLOBALS['phlexmock_instance_method_hash']['$className'][\$name] = \$closure;
+}";
+
+            //add method to define static method
+            $defineMethodHashCode .= "public function phlexmockStaticMethod(\$name, \$closure) {
+    \$GLOBALS['phlexmock_static_method_hash']['$className'][\$name] = \$closure;
+}";
 
             $magicMethodCode = "";
 
