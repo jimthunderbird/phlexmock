@@ -96,7 +96,7 @@ class PhlexMock
                     $codeLines[$l - 1] = "";
                 }
 
-                if ($name == "__construct") { //this is the constructor 
+                if ($name == "__construct" || $name == "__destruct") { //this is the constructor or destructor
                     for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
                         $codeLines[$l - 1] = "";
                     }
