@@ -61,7 +61,7 @@ class PhlexMock
                         $classCode = $this->getFinalClassCode($classFile);
                         eval($classCode);
                     } catch(\PhpParser\Error $e) {
-
+                        echo "PHP Parser Error: ".$e->getMessage();
                     }
 
                     break;
