@@ -1,2 +1,3 @@
 # phlexmock
-A tool to allow developers to redefining any class methods for testing purposes.
+A tool to allow developers to redefining PHP class methods for testing purposes.
+
