@@ -13,7 +13,6 @@ class PhlexMock
 
     private $parser;
     private $serializer;
-    private $closureAnalyser;
 
     public function __construct()
     {
@@ -42,7 +41,6 @@ class PhlexMock
         //initiate parser and serializer after autoloader is registered 
         $this->parser = new \PhpParser\Parser(new \PhpParser\Lexer());
         $this->serializer = new \PhpParser\Serializer\XML();
-        $this->closureAnalyser = new \PhlexMock\ClosureAnalyser();
     }
 
     private function loadClassIntoBuffer($class)
@@ -97,25 +95,37 @@ class PhlexMock
                 for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
                     $codeLines[$l - 1] = "";
                 }
+
+                if ($name == "__construct") { //this is the constructor 
+                    for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
+                        $codeLines[$l - 1] = "";
+                    }
+                    //now add the fake constructor 
+                    $codeLines[$l - 1] = "public function ".$methodInfo->name."{
+                    \$args = func_get_args();
+        call_user_func_array(\$GLOBALS['phlexmock_instance_method_hash']['$className']['$name'], \$args);
+}";
+                }
+
             }
             $methodHashCode .= "\n\n";
 
             $defineMethodHashCode = '';
 
             //add method to define instance method
-            $defineMethodHashCode .= "public function phlexmockInstanceMethod(\$name, \$closure) {
-    \$GLOBALS['phlexmock_instance_method_hash']['$className'][\$name] = \$closure;
-}";
+            $defineMethodHashCode .= "public static function phlexmockInstanceMethod(\$name, \$closure) {
+                \$GLOBALS['phlexmock_instance_method_hash']['$className'][\$name] = \$closure;
+        }";
 
-            //add method to define static method
-            $defineMethodHashCode .= "public function phlexmockStaticMethod(\$name, \$closure) {
+//add method to define static method
+$defineMethodHashCode .= "public static function phlexmockStaticMethod(\$name, \$closure) {
     \$GLOBALS['phlexmock_static_method_hash']['$className'][\$name] = \$closure;
-}";
+        }";
 
-            $magicMethodCode = "";
+$magicMethodCode = "";
 
-            //add the magic method __call 
-            $magicMethodCode .= "
+//add the magic method __call 
+$magicMethodCode .= "
 public function __call(\$name, \$args){ 
     if (isset(\$GLOBALS['phlexmock_instance_method_hash']['$className'][\$name])){
         return call_user_func_array(\$GLOBALS['phlexmock_instance_method_hash']['$className'][\$name], \$args); 
@@ -127,8 +137,8 @@ public function __call(\$name, \$args){
 }
 ";
 
-            //add the magic method __callStatic 
-            $magicMethodCode .= "
+//add the magic method __callStatic 
+$magicMethodCode .= "
 public static function __callStatic(\$name, \$args){ 
     if (isset(\$GLOBALS['phlexmock_instance_method_hash']['$className'][\$name])){
         return call_user_func_array(\$GLOBALS['phlexmock_static_method_hash']['$className'][\$name], \$args); 
@@ -140,160 +150,160 @@ public static function __callStatic(\$name, \$args){
 }
 ";
 
-            $codeLines[$classInfo->startLine - 1] = $methodHashCode."\n\n".$codeLines[$classInfo->startLine - 1];
-            $codeLines[$classInfo->startLine + 1] = $defineMethodHashCode."\n\n".$magicMethodCode.$codeLines[$classInfo->startLine + 1];
+$codeLines[$classInfo->startLine - 1] = $methodHashCode."\n\n".$codeLines[$classInfo->startLine - 1];
+$codeLines[$classInfo->startLine + 1] = $defineMethodHashCode."\n\n".$magicMethodCode.$codeLines[$classInfo->startLine + 1];
 
-        }
-
-        $classCode = implode("\n",$codeLines);
-        //now eval the class code 
-        $classCode = str_replace('<?php','',$classCode);
-        $classCode = $this->removeBlankLines($classCode);
-        return $classCode;
     }
 
-    private function getClassMap($codeLines, $codeASTXMLLines)
+$classCode = implode("\n",$codeLines);
+//now eval the class code 
+$classCode = str_replace('<?php','',$classCode);
+$classCode = $this->removeBlankLines($classCode);
+return $classCode;
+}
+
+private function getClassMap($codeLines, $codeASTXMLLines)
+{
+    //get all classes info, with namespace
+    $classInfos = array(); 
+
+    $classMap = array();
+
+    $namespace = ""; 
+    $className = "";
+
+    foreach($codeASTXMLLines as $index => $line)
     {
-        //get all classes info, with namespace
-        $classInfos = array(); 
+        if (strpos($line,"<node:Stmt_Namespace>") > 0) {
+            $startLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
+            $namespace = str_replace(array("namespace ",";"),"",$codeLines[$startLine - 1]);
+} else if (strpos($line,"<node:Stmt_Class>") > 0) {
+    $classInfo = new \stdClass();
+    $classInfo->startLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
+    //is it an abstract class?
+    $classInfo->isAbstract = false;
+    if (strpos(trim($codeLines[$classInfo->startLine-1]), "abstract ") === 0) {
+        $classInfo->isAbstract = true;
+}
+$classInfo->endLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 5]);
+if (strlen($namespace) > 0) {
+    $namespace = "\\".$namespace."\\";
+} else {
+    $namespace = "\\";
+}
+$classInfo->namespace = $namespace;
+$classInfo->className = $namespace.trim(str_replace(array("<scalar:string>","</scalar:string>"),"",$codeASTXMLLines[$index + 11])); # for Php Parser 1.0.x it is $index + 11 
+$classInfo->pureName = array_pop(explode("\\",$classInfo->className));
+$classInfo->methodInfos = array();
+$classInfo->properties = array();
+$classInfo->staticProperties = array();
+$className = $classInfo->className;
 
-        $classMap = array();
+$classInfos[] = $classInfo;   
 
-        $namespace = ""; 
-        $className = "";
+$classMap[$classInfo->className] = $classInfo;
+//reset namespace to empty 
+$namespace = "";
+} else if (strpos($line, "<node:Stmt_Property>") > 0) {
+    $propertyStartLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
+    $propertyCode = $codeLines[$propertyStartLine - 1];
+    $propertyInfo = new \stdClass();
 
-        foreach($codeASTXMLLines as $index => $line)
-        {
-            if (strpos($line,"<node:Stmt_Namespace>") > 0) {
-                $startLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
-                $namespace = str_replace(array("namespace ",";"),"",$codeLines[$startLine - 1]);
-            } else if (strpos($line,"<node:Stmt_Class>") > 0) {
-                $classInfo = new \stdClass();
-                $classInfo->startLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
-                //is it an abstract class?
-                $classInfo->isAbstract = false;
-                if (strpos(trim($codeLines[$classInfo->startLine-1]), "abstract ") === 0) {
-                    $classInfo->isAbstract = true;
-                }
-                $classInfo->endLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 5]);
-                if (strlen($namespace) > 0) {
-                    $namespace = "\\".$namespace."\\";
-                } else {
-                    $namespace = "\\";
-                }
-                $classInfo->namespace = $namespace;
-                $classInfo->className = $namespace.trim(str_replace(array("<scalar:string>","</scalar:string>"),"",$codeASTXMLLines[$index + 11])); # for Php Parser 1.0.x it is $index + 11 
-                $classInfo->pureName = array_pop(explode("\\",$classInfo->className));
-                $classInfo->methodInfos = array();
-                $classInfo->properties = array();
-                $classInfo->staticProperties = array();
-                $className = $classInfo->className;
+    $propertyStartPos = strpos($propertyCode, "$");
+    $propertyEndPos = strpos($propertyCode, ";");
 
-                $classInfos[] = $classInfo;   
+    $propertyComps = explode("=",substr($propertyCode, $propertyStartPos + 1, $propertyEndPos - $propertyStartPos - 1));
 
-                $classMap[$classInfo->className] = $classInfo;
-                //reset namespace to empty 
-                $namespace = "";
-            } else if (strpos($line, "<node:Stmt_Property>") > 0) {
-                $propertyStartLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
-                $propertyCode = $codeLines[$propertyStartLine - 1];
-                $propertyInfo = new \stdClass();
+    $propertyInfo->name = trim($propertyComps[0]);
+    $propertyInfo->value = null;
+    //some property might not have a value;
+    if (count($propertyComps) > 1) {
+        $propertyInfo->value = str_replace('"',"'", trim($propertyComps[1]));
+}
+$propertyInfo->code = $propertyCode; 
 
-                $propertyStartPos = strpos($propertyCode, "$");
-                $propertyEndPos = strpos($propertyCode, ";");
+if(strpos($propertyCode, "static ") !== FALSE) {
+    //this is a static property 
+    $classMap[$className]->staticProperties[] = $propertyInfo;
+} else {
+    //this is a dynamic property   
+    $classMap[$className]->properties[] = $propertyInfo;
+}
+} else if (strpos($line,"<node:Stmt_ClassMethod>") > 0) {
+    $classMethodInfo = new \stdClass();
+    $classMethodInfo->startLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
+    $classMethodInfo->endLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 5]);
+    $startLineContent = $codeLines[$classMethodInfo->startLine - 1];
+    $classMethodInfo->name = trim(explode("function ",$startLineContent)[1]);
+    $classMethodInfo->pureName = explode(" ", str_replace("(", " ", $classMethodInfo->name))[0];
 
-                $propertyComps = explode("=",substr($propertyCode, $propertyStartPos + 1, $propertyEndPos - $propertyStartPos - 1));
+    $classMethodInfo->code = implode("\n",array_slice($codeLines, $classMethodInfo->startLine, $classMethodInfo->endLine - $classMethodInfo->startLine));
 
-                $propertyInfo->name = trim($propertyComps[0]);
-                $propertyInfo->value = null;
-                //some property might not have a value;
-                if (count($propertyComps) > 1) {
-                    $propertyInfo->value = str_replace('"',"'", trim($propertyComps[1]));
-                }
-                $propertyInfo->code = $propertyCode; 
+    //now figure out where it is public, protected or private 
 
-                if(strpos($propertyCode, "static ") !== FALSE) {
-                    //this is a static property 
-                    $classMap[$className]->staticProperties[] = $propertyInfo;
-                } else {
-                    //this is a dynamic property   
-                    $classMap[$className]->properties[] = $propertyInfo;
-                }
-            } else if (strpos($line,"<node:Stmt_ClassMethod>") > 0) {
-                $classMethodInfo = new \stdClass();
-                $classMethodInfo->startLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
-                $classMethodInfo->endLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 5]);
-                $startLineContent = $codeLines[$classMethodInfo->startLine - 1];
-                $classMethodInfo->name = trim(explode("function ",$startLineContent)[1]);
-                $classMethodInfo->pureName = explode(" ", str_replace("(", " ", $classMethodInfo->name))[0];
+    //find out all methods belongs to this class
+    foreach(array("public","protected","private") as $visibility) {
+        if (strpos($startLineContent,"$visibility ") !== FALSE) {
+            $classMethodInfo->visibility = $visibility;
+}
+}
 
-                $classMethodInfo->code = implode("\n",array_slice($codeLines, $classMethodInfo->startLine, $classMethodInfo->endLine - $classMethodInfo->startLine));
+if (!isset($classMethodInfo->visibility)) {
+    $classMethodInfo->visibility = "protected";
+}
 
-                //now figure out where it is public, protected or private 
+if (strpos($startLineContent, "static ") !== FALSE) {
+    $classMethodInfo->isStatic = true;
+} else {
+    $classMethodInfo->isStatic = false;
+}
 
-                //find out all methods belongs to this class
-                foreach(array("public","protected","private") as $visibility) {
-                    if (strpos($startLineContent,"$visibility ") !== FALSE) {
-                        $classMethodInfo->visibility = $visibility;
-                    }
-                }
+$classMap[$className]->methodInfos[$classMethodInfo->pureName] = $classMethodInfo;
+}
+}
 
-                if (!isset($classMethodInfo->visibility)) {
-                    $classMethodInfo->visibility = "protected";
-                }
+//now figure out the parent classes for each class
+foreach($classInfos as $index => $classInfo) {
+    $line = trim($codeLines[$classInfo->startLine - 1]);
+    if (strpos($line, " extends ") !== FALSE) {
+        $lineComps = explode(" extends ", $line);
+        $namespace = "\\";
+        if ($classInfo->namespace !== "\\") {
+            $namespace = "\\".$classInfo->namespace."\\";
+}
+$classMap[$classInfo->className]->parentClass = $namespace.trim(explode(" ",$lineComps[1])[0]);
+}
+}
 
-                if (strpos($startLineContent, "static ") !== FALSE) {
-                    $classMethodInfo->isStatic = true;
-                } else {
-                    $classMethodInfo->isStatic = false;
-                }
+return $classMap;
 
-                $classMap[$className]->methodInfos[$classMethodInfo->pureName] = $classMethodInfo;
-            }
-        }
+}
 
-        //now figure out the parent classes for each class
-        foreach($classInfos as $index => $classInfo) {
-            $line = trim($codeLines[$classInfo->startLine - 1]);
-            if (strpos($line, " extends ") !== FALSE) {
-                $lineComps = explode(" extends ", $line);
-                $namespace = "\\";
-                if ($classInfo->namespace !== "\\") {
-                    $namespace = "\\".$classInfo->namespace."\\";
-                }
-                $classMap[$classInfo->className]->parentClass = $namespace.trim(explode(" ",$lineComps[1])[0]);
-            }
-        }
+private function generateFileIndex()
+{
+    $nameStr = '';
+    foreach($this->classExtension as $index => $extension) {
+        if ($index == 0) {
+            $nameStr .= "-name '*.".$extension."' -o ";
+} else {
+    $nameStr .= "-name '*.".$extension."'";
+}
+}
 
-        return $classMap;
+$files = [];
+foreach($this->classSearchPaths as $classSearchPath) {
+    $cmd = 'find '.$classSearchPath.' -type f '.$nameStr;
+    $files = array_merge($files, explode("\n",trim(shell_exec($cmd))));
+}
 
-    }
+$this->fileIndex = $files;
+}
 
-    private function generateFileIndex()
-    {
-        $nameStr = '';
-        foreach($this->classExtension as $index => $extension) {
-            if ($index == 0) {
-                $nameStr .= "-name '*.".$extension."' -o ";
-            } else {
-                $nameStr .= "-name '*.".$extension."'";
-            }
-        }
-
-        $files = [];
-        foreach($this->classSearchPaths as $classSearchPath) {
-            $cmd = 'find '.$classSearchPath.' -type f '.$nameStr;
-            $files = array_merge($files, explode("\n",trim(shell_exec($cmd))));
-        }
-
-        $this->fileIndex = $files;
-    }
-
-    private function removeBlankLines($content)
-    {
-        //now remove all blank lines, credit: http://stackoverflow.com/questions/709669/how-do-i-remove-blank-lines-from-text-in-php   
-        $content = preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $content);
-        return $content;
-    }
+private function removeBlankLines($content)
+{
+    //now remove all blank lines, credit: http://stackoverflow.com/questions/709669/how-do-i-remove-blank-lines-from-text-in-php   
+    $content = preg_replace("/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $content);
+    return $content;
+}
 
 }
