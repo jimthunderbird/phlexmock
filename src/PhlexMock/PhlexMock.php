@@ -7,7 +7,8 @@ namespace PhlexMock;
 class PhlexMock 
 {
     private $classSearchPaths;
-    private $classExtension;
+    private $classExtensions;
+    private $excludePatterns;
 
     private $fileIndexBuffer;
 
@@ -17,7 +18,7 @@ class PhlexMock
     public function __construct()
     {
         $this->classSearchPaths = [];
-        $this->classExtension = [];
+        $this->classExtensions = ['php','class.php']; //default look for .php and class.php
         $this->classMethodMap = [];
         $this->fileIndex = [];
     }
@@ -27,9 +28,9 @@ class PhlexMock
         $this->classSearchPaths = $classSearchPaths;
     }
 
-    public function setClassExtension($classExtension)
+    public function setClassExtensions($classExtension)
     {
-        $this->classExtension = $classExtension; 
+        $this->classExtensions = $classExtension; 
     }
 
     public function start()
@@ -281,7 +282,7 @@ $codeLines[$classInfo->startLine + 1] = $defineMethodHashCode."\n\n".$magicMetho
     private function generateFileIndex()
     {
         $nameStr = '';
-        foreach($this->classExtension as $index => $extension) {
+        foreach($this->classExtensions as $index => $extension) {
             if ($index == 0) {
                 $nameStr .= "-name '*.".$extension."' -o ";
             } else {
