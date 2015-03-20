@@ -2,12 +2,14 @@
 A tool to allow developers to redefining PHP class methods for testing purposes.
 
 ##Installation 
-Add phlexmock to your composer.json
+Add phlexmock to your composer.json 
+```
 {
     "require-dev": {
         "jimthunderbird/phlexmock": "*"
     }
 }
+```
 
 ##Basic Examples 
 
