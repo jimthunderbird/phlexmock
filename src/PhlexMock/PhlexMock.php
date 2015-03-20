@@ -140,7 +140,7 @@ public function __call(\$name, \$args){
 //add the magic method __callStatic 
 $magicMethodCode .= "
 public static function __callStatic(\$name, \$args){ 
-    if (isset(\$GLOBALS['phlexmock_instance_method_hash']['$className'][\$name])){
+    if (isset(\$GLOBALS['phlexmock_static_method_hash']['$className'][\$name])){
         return call_user_func_array(\$GLOBALS['phlexmock_static_method_hash']['$className'][\$name], \$args); 
     } else {
         if (get_parent_class() !== FALSE) {
