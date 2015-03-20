@@ -57,14 +57,14 @@ $phlexmock->start();
 /**
  * reopen constructor
  */
-\User::phlexmockInstanceMethod('__construct', function($name){
+\User::phlexmockMethod('__construct', function($name){
     echo "Reopened constructor\n";
 });
 
 /**
  * reopen method ok
  */
-\User::phlexmockInstanceMethod('ok', function(){
+\User::phlexmockMethod('ok', function(){
     echo "Reopened ok method\n";
 });
 
@@ -72,7 +72,7 @@ $user = new \User("a-user");
 $user->ok();
 $user->info();
 
-\User::phlexmockInstanceMethod('info', function(){
+\User::phlexmockMethod('info', function(){
     echo "Reopened information";
 });
 
