@@ -79,4 +79,4 @@ $user->info();
 $user->info();
 ```
 
-Now we will be seeing all of the reopened methods! This should allow us to easily modify or mock any classes for testing.
+Now we will be seeing all the output from the reopened methods! This should allow us to easily modify or mock any classes for testing.
