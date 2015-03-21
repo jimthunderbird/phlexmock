@@ -48,12 +48,12 @@ class PhlexMock
     {
         $class = str_replace("\\","/",$class);
 
-        $classFile = "";
+        $classFile = null;
 
         //first check if the class is matched in the classFileMap 
         if (count($this->classFileMap) > 0 && isset($this->classFileMap[$class])) {
             $classFile = $this->classFileMap[$class];
-            require_once $classFile;
+            $this->parseAndEvaluateClassFile($classFile);
             return;
         }
 
@@ -64,23 +64,27 @@ class PhlexMock
                 $classFound = $classFound || (strpos($file,"$class.$extension") !== FALSE);
             }
             if ($classFound) { //tricky, need to add dot at the end!
-                $classFile = $file;
-                if (strpos($classFile,"/vendor/") !== FALSE) { #this is third party lilbrary, we need to load them up 
-                    require_once $classFile;
-                } else if (strpos($class, 'PhlexMock') !== FALSE) { 
-                    require_once $classFile;
+                if (strpos($file,"/vendor/") !== FALSE) { #this is third party lilbrary, load it up 
+                    return;
+                } else if (strpos($class, 'PhlexMock') !== FALSE) { #this is phlexmock related classes, load it up 
+                    return;
                 } else {
-                    //this is custom class, perform static code analysis 
-                    try {
-                        $classCode = $this->getFinalClassCode($classFile);
-                        eval($classCode);
-                    } catch(\PhpParser\Error $e) {
-                        echo "PHP Parser Error: ".$e->getMessage();
-                    }
-
+                    $classFile = $file;
+                    $this->parseAndEvaluateClassFile($classFile);
                     break;
                 }
             } 
+        }
+
+    }
+
+    private function parseAndEvaluateClassFile($classFile)
+    {
+        try {
+            $classCode = $this->getFinalClassCode($classFile);
+            eval($classCode);
+        } catch(\PhpParser\Error $e) {
+            echo "PHP Parser Error: ".$e->getMessage();
         }
     }
 
@@ -311,4 +315,4 @@ return $classCode;
         return $content;
     }
 
-            }
+}
