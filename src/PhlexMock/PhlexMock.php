@@ -34,6 +34,11 @@ class PhlexMock
         $this->classExtensions = $classExtension; 
     }
 
+    public function setClassFileMap($classFileMap)
+    {
+        $this->classFileMap = $classFileMap;
+    }
+
     public function start()
     {
         $this->generateFileIndex();
@@ -63,7 +68,7 @@ class PhlexMock
             foreach($this->classExtensions as $extension) {
                 $classFound = $classFound || (strpos($file,"$class.$extension") !== FALSE);
             }
-            if ($classFound) { //tricky, need to add dot at the end!
+            if ($classFound) { 
                 if (strpos($file,"/vendor/") !== FALSE) { #this is third party lilbrary, load it up 
                     return;
                 } else if (strpos($class, 'PhlexMock') !== FALSE) { #this is phlexmock related classes, load it up 
