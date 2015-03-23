@@ -14,6 +14,7 @@ Add phlexmock to your composer.json
 ##Examples 
 
 + [Reopenning methods in a class](#example-01)
++ [Use this keyword in the reopened methods](#example-02)
 
 ###Example 01: Reopenning methods in a class
 ####Let's say we have a class named User.php in our current path and it looks like the following:
@@ -80,4 +81,50 @@ $user->ok();
 $user->info();
 ```
 
-####Now we will be seeing all the output from the reopened methods! This should allow us to easily modify or mock any classes for testing.
+####Now we will be seeing all the output from the reopened methods! This should allow us to easily modify or mock any classes for testing. 
+
+###Example 02: Using this keyword in the reopened methods
+####When we reopen the methods in the class, we can use the this and self keywords in the method closure. 
+
+####Let's say we have a class named Circle.php in our current directory and it looks like the following:
+```php 
+class Circle 
+{
+    private $x;
+    private $y;
+
+    public function setX($x)
+    {
+        $this->x = $x; 
+    }
+
+    public function getX()
+    {
+        return $this->x;
+    }
+}
+```
+
+####And we would like to reopen the setX method in Circle class so that the instance property x will be doulbe of the value of the x value passed in, aka
+```php 
+$this->x = 2 * $x
+```
+
+####Let's do that with phlexmock 
+```php 
+require_once __DIR__."/vendor/autoload.php";
+
+$phlexmock = new \PhlexMock\PhlexMock();
+$phlexmock->setClassSearchPaths([__DIR__]);
+$phlexmock->start();
+
+\Circle::phlexmockMethod('setX', function($x){
+    $this->x = 2 * $x;
+});
+
+$c = new \Circle();
+$c->setX(2);
+echo $c->getX();
+``` 
+
+####Now the setX method is reopened and in the code above, we will be seeing 4 printed on the screen. 
