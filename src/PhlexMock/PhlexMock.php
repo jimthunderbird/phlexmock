@@ -186,6 +186,11 @@ CODE;
 $magicMethodCode .= <<<CODE
 public static function __callStatic(\$name, \$args){ 
     if (isset(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])){
+        if (is_string(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])) { //this is pure closure code in string format 
+            eval(\$GLOBALS['phlexmock_method_hash']['$className'][\$name]);
+        } else { //this is the actual closure itself
+            \$func = \$GLOBALS['phlexmock_method_hash']['$className'][\$name];
+        }   
         return call_user_func_array(\$GLOBALS['phlexmock_method_hash']['$className'][\$name], \$args); 
     } else {
         if (get_parent_class() !== FALSE) {
