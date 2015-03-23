@@ -11,9 +11,12 @@ Add phlexmock to your composer.json
 }
 ```
 
-##Basic Examples 
+##Examples 
 
-Let's say we have a class named User.php in our current path and it looks like the following:
++ [Reopenning methods in a class](#example-01)
+
+###Example 01: Reopenning methods in a class
+####Let's say we have a class named User.php in our current path and it looks like the following:
 ```php 
 <?php 
 class User 
@@ -35,16 +38,15 @@ class User
 }
 ```
 
-And if we do:
+####And if we do:
 ```php 
 $user = new \User("a-user");
 $user->ok();
 $user->info();
 ```
+####We will be seeing all the default messages for each method.
 
-We will be seeing all the default messages for each method.
-
-Now let's use PhlexMock to reopen the methods.
+####Now let's use PhlexMock to reopen the methods.
 
 ```php 
 <?php 
@@ -70,7 +72,6 @@ $phlexmock->start();
 
 $user = new \User("a-user");
 $user->ok();
-$user->info();
 
 \User::phlexmockMethod('info', function(){
     echo "Reopened information";
@@ -79,4 +80,4 @@ $user->info();
 $user->info();
 ```
 
-Now we will be seeing all the output from the reopened methods! This should allow us to easily modify or mock any classes for testing.
+####Now we will be seeing all the output from the reopened methods! This should allow us to easily modify or mock any classes for testing.
