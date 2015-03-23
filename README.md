@@ -16,7 +16,8 @@ Add phlexmock to your composer.json
 + [Reopenning methods in a class](#example-01)
 + [Use this keyword in the reopened methods](#example-02)
 
-###Example 01: Reopenning methods in a class
+###Example 01 
+####Reopenning methods in a class
 ####Let's say we have a class named User.php in our current path and it looks like the following:
 ```php 
 <?php 
@@ -83,7 +84,8 @@ $user->info();
 
 ####Now we will be seeing all the output from the reopened methods! This should allow us to easily modify or mock any classes for testing. 
 
-###Example 02: Using this keyword in the reopened methods
+###Example 02 
+####Using this keyword in the reopened methods
 ####When we reopen the methods in the class, we can use the this and self keywords in the method closure. 
 
 ####Let's say we have a class named Circle.php in our current directory and it looks like the following:
