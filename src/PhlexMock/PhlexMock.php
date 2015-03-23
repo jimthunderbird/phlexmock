@@ -110,7 +110,7 @@ class PhlexMock
             $methodHashCode = "\n\n";
             foreach($classInfo->methodInfos as $name => $methodInfo) {
 
-                $methodName = $name;
+                $methodName = strtolower($name); #use lowercase method name so that we can have case insensitive method names
                 //now need to remove all existing method code 
 
                 for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
@@ -118,7 +118,7 @@ class PhlexMock
                 }
 
                 if ($name == "__construct" || $name == "__destruct") { //this is the constructor or destructor 
-                    $methodName = "phlexmock_".$name;
+                    $methodName = "phlexmock_".$methodName;
                     for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
                         $codeLines[$l - 1] = "";
                     }
@@ -139,6 +139,7 @@ class PhlexMock
             //add method to define method, we will store the actual closure code in string to the hash so that we can eval later on
             $defineMethodHashCode .= <<<DMH
 public static function phlexmockMethod(\$name, \$closure) {
+    \$name = strtolower(\$name);
     if (\$name == "__construct" || \$name == "__destruct") { //special treatment for constructor and destructor!
         \$name = "phlexmock_".\$name;
     }
@@ -167,6 +168,7 @@ $magicMethodCode = "";
 //add the magic method __call 
 $magicMethodCode .= <<<CODE
 public function __call(\$name, \$args){ 
+    \$name = strtolower(\$name);
     if (isset(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])){
         if (is_string(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])) { //this is pure closure code in string format 
             eval(\$GLOBALS['phlexmock_method_hash']['$className'][\$name]);
@@ -185,6 +187,7 @@ CODE;
 //add the magic method __callStatic 
 $magicMethodCode .= <<<CODE
 public static function __callStatic(\$name, \$args){ 
+    \$name = strtolower(\$name);
     if (isset(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])){
         if (is_string(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])) { //this is pure closure code in string format 
             eval(\$GLOBALS['phlexmock_method_hash']['$className'][\$name]);
