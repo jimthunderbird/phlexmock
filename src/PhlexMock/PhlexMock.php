@@ -156,8 +156,7 @@ public static function phlexmockMethod(\$name, \$closure) {
     }
     \$sl = \$closureRF->getStartLine();
     \$el = \$closureRF->getEndLine();
-    \$backtrace = debug_backtrace();
-    \$lines = explode("\\n",file_get_contents(\$backtrace[0]['file']));
+    \$lines = explode("\\n",file_get_contents(\$closureRF->getFileName()));
     \$code = '\$func = function'.\$paramStr.' { '.implode("\\n",array_slice(\$lines, \$sl, \$el - \$sl - 1)).' };';
     \$GLOBALS['phlexmock_method_hash']['$className'][\$name] = \$code;
 }
