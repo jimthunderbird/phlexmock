@@ -191,7 +191,7 @@ public static function __callStatic(\$name, \$args){
         } else { //this is the actual closure itself
             \$func = \$GLOBALS['phlexmock_method_hash']['$className'][\$name];
         }   
-        return call_user_func_array(\$GLOBALS['phlexmock_method_hash']['$className'][\$name], \$args); 
+        return call_user_func_array(\$func, \$args); 
     } else {
         if (get_parent_class() !== FALSE) {
             return parent::__callStatic(\$name, \$args);
