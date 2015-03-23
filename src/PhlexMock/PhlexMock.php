@@ -125,7 +125,7 @@ class PhlexMock
                     //now add the fake constructor and destructor
                     $codeLines[$l - 2] = "public function ".$methodInfo->name."{
                     \$args = func_get_args();
-                    call_user_func_array(\$GLOBALS['phlexmock_method_hash']['$className']['$methodName'], \$args);
+                    call_user_func_array(array(\$this,'$methodName'), \$args);
                 }";
                 }
 
@@ -139,6 +139,9 @@ class PhlexMock
             //add method to define method, we will store the actual closure code in string to the hash so that we can eval later on
             $defineMethodHashCode .= <<<DMH
 public static function phlexmockMethod(\$name, \$closure) {
+    if (\$name == "__construct" || \$name == "__destruct") { //special treatment for constructor and destructor!
+        \$name = "phlexmock_".\$name;
+    }
     \$closureRF = new \ReflectionFunction(\$closure);
     \$paramStr = "()";
     \$params = [];
@@ -165,7 +168,7 @@ $magicMethodCode = "";
 $magicMethodCode .= <<<CODE
 public function __call(\$name, \$args){ 
     if (isset(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])){
-        if (is_string(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])) { //this is pure closure code in string format
+        if (is_string(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])) { //this is pure closure code in string format 
             eval(\$GLOBALS['phlexmock_method_hash']['$className'][\$name]);
         } else { //this is the actual closure itself
             \$func = \$GLOBALS['phlexmock_method_hash']['$className'][\$name];
