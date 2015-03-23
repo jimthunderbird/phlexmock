@@ -104,6 +104,9 @@ class PhlexMock
 
         //now reopen all methods ... 
 
+        //see if the constructor and destructor exists in the class  
+        $constructorExists = false;
+        $destructorExists = false;
         foreach($classMap as $className => $classInfo) {
             //now add all methods into global hash
             foreach($classInfo->methodInfos as $name => $methodInfo) {
@@ -116,6 +119,12 @@ class PhlexMock
                 }
 
                 if ($name == "__construct" || $name == "__destruct") { //this is the constructor or destructor 
+                    if ($name == "__construct") {
+                        $constructorExists = true;
+                    }
+                    if ($name == "__destruct") {
+                        $destructorExists = true;
+                    }
                     $methodName = "phlexmock_".$methodName;
                     for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
                         $codeLines[$l - 1] = "";
@@ -130,6 +139,19 @@ class PhlexMock
                 //we simply store the closure clode to global and will evaluate later
                 $GLOBALS['phlexmock_method_hash'][$className][$methodName] = "\$func=".str_replace($name, 'function',$methodInfo->name).$methodInfo->code.';';
             }
+
+            if (!$constructorExists) {
+                $codeLines[$classInfo->startLine + 1] = "\n\npublic function __construct() {
+                    call_user_func_array(array(\$this,'phlexmock___construct'),array());
+                }\n\n".$codeLines[$classInfo->startLine + 1];
+            }
+
+            if (!$destructorExists) {
+                $codeLines[$classInfo->startLine + 1] = "\n\npublic function __destruct() {
+                    call_user_func_array(array(\$this,'phlexmock___destruct'),array());
+                }\n\n".$codeLines[$classInfo->startLine + 1];
+            }
+
 
             $defineMethodHashCode = '';
 
@@ -163,7 +185,7 @@ $magicMethodCode = "";
 
 //add the magic method __call 
 $magicMethodCode .= <<<CODE
-public function __call(\$name, \$args){ 
+\n\npublic function __call(\$name, \$args){ 
     \$name = strtolower(\$name);
     if (isset(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])){
         eval(\$GLOBALS['phlexmock_method_hash']['$className'][\$name]);
@@ -178,7 +200,7 @@ CODE;
 
 //add the magic method __callStatic 
 $magicMethodCode .= <<<CODE
-public static function __callStatic(\$name, \$args){ 
+\n\npublic static function __callStatic(\$name, \$args){ 
     \$name = strtolower(\$name);
     if (isset(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])){
         eval(\$GLOBALS['phlexmock_method_hash']['$className'][\$name]);
