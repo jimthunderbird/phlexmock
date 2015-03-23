@@ -105,9 +105,7 @@ class PhlexMock
         //now reopen all methods ... 
 
         foreach($classMap as $className => $classInfo) {
-            //now add all methods into hash  
-
-            $methodHashCode = "\n\n";
+            //now add all methods into global hash
             foreach($classInfo->methodInfos as $name => $methodInfo) {
 
                 $methodName = strtolower($name); #use lowercase method name so that we can have case insensitive method names
@@ -129,10 +127,9 @@ class PhlexMock
                 }";
                 }
 
-                $methodHashCode .= "\$GLOBALS['phlexmock_method_hash']['$className']['$methodName'] = ".str_replace($name, 'function',$methodInfo->name).$methodInfo->code.";\n";
-
+                //we simply store the closure clode to global and will evaluate later
+                $GLOBALS['phlexmock_method_hash'][$className][$methodName] = "\$func=".str_replace($name, 'function',$methodInfo->name).$methodInfo->code.';';
             }
-            $methodHashCode .= "\n\n";
 
             $defineMethodHashCode = '';
 
@@ -169,11 +166,7 @@ $magicMethodCode .= <<<CODE
 public function __call(\$name, \$args){ 
     \$name = strtolower(\$name);
     if (isset(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])){
-        if (is_string(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])) { //this is pure closure code in string format 
-            eval(\$GLOBALS['phlexmock_method_hash']['$className'][\$name]);
-        } else { //this is the actual closure itself
-            \$func = \$GLOBALS['phlexmock_method_hash']['$className'][\$name];
-        }   
+        eval(\$GLOBALS['phlexmock_method_hash']['$className'][\$name]);
         return call_user_func_array(\$func, \$args); 
     } else {
         if (get_parent_class() !== FALSE) {
@@ -188,11 +181,7 @@ $magicMethodCode .= <<<CODE
 public static function __callStatic(\$name, \$args){ 
     \$name = strtolower(\$name);
     if (isset(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])){
-        if (is_string(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])) { //this is pure closure code in string format 
-            eval(\$GLOBALS['phlexmock_method_hash']['$className'][\$name]);
-        } else { //this is the actual closure itself
-            \$func = \$GLOBALS['phlexmock_method_hash']['$className'][\$name];
-        }   
+        eval(\$GLOBALS['phlexmock_method_hash']['$className'][\$name]);
         return call_user_func_array(\$func, \$args); 
     } else {
         if (get_parent_class() !== FALSE) {
@@ -202,7 +191,6 @@ public static function __callStatic(\$name, \$args){
 }
 CODE;
 
-$codeLines[$classInfo->startLine - 1] = $methodHashCode."\n\n".$codeLines[$classInfo->startLine - 1];
 $codeLines[$classInfo->startLine + 1] = $defineMethodHashCode."\n\n".$magicMethodCode.$codeLines[$classInfo->startLine + 1];
 
 }
