@@ -94,7 +94,6 @@ $user->info();
 
 ###Example 02 
 ####Using this keyword in the reopened methods
-####When we reopen the methods in the class, we can use the this and self keywords in the method closure. 
 
 ####Let's say we have a class named Circle.php in our current directory and it looks like the following:
 ```php 
