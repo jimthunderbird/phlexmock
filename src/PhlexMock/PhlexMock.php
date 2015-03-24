@@ -16,6 +16,8 @@ class PhlexMock
     private $parser;
     private $serializer;
 
+    private static $classMethodHash = [];
+
     public function __construct()
     {
         $this->classSearchPaths = [];
@@ -47,6 +49,42 @@ class PhlexMock
         //initiate parser and serializer after autoloader is registered 
         $this->parser = new \PhpParser\Parser(new \PhpParser\Lexer());
         $this->serializer = new \PhpParser\Serializer\XML();
+    }
+
+    public static function setClassMethodHash($classMethodHash)
+    {
+        self::$classMethodHash = $classMethodHash;
+    }
+
+    public static function getClassMethodHash()
+    {
+        return self::$classMethodHash;
+    }
+
+    public static function updateClassMethodHash($className, $methodName, $closure)
+    {
+        $methodName= strtolower($methodName);
+        if ($methodName == "__construct" || $methodName == "__destruct") { //special treatment for constructor and destructor!
+            $methodName= "phlexmock_".$methodName;
+        }
+
+        $closureRF = new \ReflectionFunction($closure);
+        $paramStr = "()";
+        $params = [];
+        $closureParams = $closureRF->getParameters();
+
+        if (count($closureParams) > 0) {
+            foreach($closureParams as $closureParam) {
+                $params[] = '$'.$closureParam->getName();
+            }
+            $paramStr = "(".implode(",",$params).")";
+        }
+   
+        $sl = $closureRF->getStartLine();
+        $el = $closureRF->getEndLine();
+        $lines = explode("\n",file_get_contents($closureRF->getFileName()));
+        $code = '$func = function'.$paramStr.' { '.implode("\n",array_slice($lines, $sl, $el - $sl - 1)).' };';
+        self::$classMethodHash[$className][$methodName] = $code;
     }
 
     private function loadClassIntoBuffer($class)
@@ -107,8 +145,10 @@ class PhlexMock
         //see if the constructor and destructor exists in the class  
         $constructorExists = false;
         $destructorExists = false;
+
+        $classMethodHash = array();
+
         foreach($classMap as $className => $classInfo) {
-            //now add all methods into global hash
             foreach($classInfo->methodInfos as $name => $methodInfo) {
 
                 $methodName = strtolower($name); #use lowercase method name so that we can have case insensitive method names
@@ -136,20 +176,20 @@ class PhlexMock
                 }";
                 }
 
-                //we simply store the closure clode to global and will evaluate later
-                $GLOBALS['phlexmock_method_hash'][$className][$methodName] = "\$func=".str_replace($name, 'function',$methodInfo->name).$methodInfo->code.';';
+                //we simply store the closure clode to the class method hash and evaluate later
+                $classMethodHash[$className][$methodName] = "\$func=".str_replace($name, 'function',$methodInfo->name).$methodInfo->code.';';
             }
 
             if (!$constructorExists) {
                 $codeLines[$classInfo->startLine + 1] = "\n\npublic function __construct() {
                     call_user_func_array(array(\$this,'phlexmock___construct'),array());
-                }\n\n".$codeLines[$classInfo->startLine + 1];
+            }\n\n".$codeLines[$classInfo->startLine + 1];
             }
 
             if (!$destructorExists) {
                 $codeLines[$classInfo->startLine + 1] = "\n\npublic function __destruct() {
                     call_user_func_array(array(\$this,'phlexmock___destruct'),array());
-                }\n\n".$codeLines[$classInfo->startLine + 1];
+            }\n\n".$codeLines[$classInfo->startLine + 1];
             }
 
 
@@ -158,37 +198,19 @@ class PhlexMock
             //add method to define method, we will store the actual closure code in string to the hash so that we can eval later on
             $defineMethodHashCode .= <<<DMH
 public static function phlexmockMethod(\$name, \$closure) {
-    \$name = strtolower(\$name);
-    if (\$name == "__construct" || \$name == "__destruct") { //special treatment for constructor and destructor!
-        \$name = "phlexmock_".\$name;
-    }
-    \$closureRF = new \ReflectionFunction(\$closure);
-    \$paramStr = "()";
-    \$params = [];
-    \$closureParams = \$closureRF->getParameters();
-
-    if (count(\$closureParams) > 0) {
-        foreach(\$closureParams as \$closureParam) {
-            \$params[] = '$'.\$closureParam->getName();
-        }
-        \$paramStr = "(".implode(",",\$params).")";
-    }
-    \$sl = \$closureRF->getStartLine();
-    \$el = \$closureRF->getEndLine();
-    \$lines = explode("\\n",file_get_contents(\$closureRF->getFileName()));
-    \$code = '\$func = function'.\$paramStr.' { '.implode("\\n",array_slice(\$lines, \$sl, \$el - \$sl - 1)).' };';
-    \$GLOBALS['phlexmock_method_hash']['$className'][\$name] = \$code;
+    \PhlexMock\PhlexMock::updateClassMethodHash('$className', \$name, \$closure);
 }
 DMH;
 
-$magicMethodCode = "";
+            $magicMethodCode = "";
 
-//add the magic method __call 
-$magicMethodCode .= <<<CODE
+            //add the magic method __call 
+            $magicMethodCode .= <<<CODE
 \n\npublic function __call(\$name, \$args){ 
     \$name = strtolower(\$name);
-    if (isset(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])){
-        eval(\$GLOBALS['phlexmock_method_hash']['$className'][\$name]);
+    \$classMethodHash = \PhlexMock\PhlexMock::getClassMethodHash();
+    if (isset(\$classMethodHash['$className'][\$name])){
+        eval(\$classMethodHash['$className'][\$name]);
         return call_user_func_array(\$func, \$args); 
     } else {
         if (get_parent_class() !== FALSE) {
@@ -198,12 +220,13 @@ $magicMethodCode .= <<<CODE
 }
 CODE;
 
-//add the magic method __callStatic 
-$magicMethodCode .= <<<CODE
+            //add the magic method __callStatic 
+            $magicMethodCode .= <<<CODE
 \n\npublic static function __callStatic(\$name, \$args){ 
     \$name = strtolower(\$name);
-    if (isset(\$GLOBALS['phlexmock_method_hash']['$className'][\$name])){
-        eval(\$GLOBALS['phlexmock_method_hash']['$className'][\$name]);
+    \$classMethodHash = \PhlexMock\PhlexMock::getClassMethodHash();
+    if (isset(\$classMethodHash['$className'][\$name])){
+        eval(\$classMethodHash['$className'][\$name]);
         return call_user_func_array(\$func, \$args); 
     } else {
         if (get_parent_class() !== FALSE) {
@@ -213,15 +236,19 @@ $magicMethodCode .= <<<CODE
 }
 CODE;
 
-$codeLines[$classInfo->startLine + 1] = $defineMethodHashCode."\n\n".$magicMethodCode.$codeLines[$classInfo->startLine + 1];
+            $codeLines[$classInfo->startLine + 1] = $defineMethodHashCode."\n\n".$magicMethodCode.$codeLines[$classInfo->startLine + 1];
 
-}
+    }
 
-$classCode = implode("\n",$codeLines);
-//now eval the class code 
-$classCode = str_replace('<?php','',$classCode);
-$classCode = $this->removeBlankLines($classCode);
-return $classCode;
+    //now store the classMethodHash
+
+    self::setClassMethodHash($classMethodHash);
+
+    $classCode = implode("\n",$codeLines);
+    //now eval the class code 
+    $classCode = str_replace('<?php','',$classCode);
+    $classCode = $this->removeBlankLines($classCode);
+    return $classCode;
     }
 
     private function getClassMap($codeLines, $codeASTXMLLines)
