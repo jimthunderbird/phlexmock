@@ -1,7 +1,7 @@
 {
     "name": "jimthunderbird/phlexmock",
         "description": "A tool to allow developers to mock any php class by redefining class methods",
-        "keywords": ["tool", "zephir", "extension", "builder"],
+        "keywords": ["tool","unit testing"],
         "homepage": "https://github.com/jimthunderbird/phlexmock",
         "license": "MIT",
         "authors": [
