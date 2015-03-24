@@ -16,6 +16,8 @@ class PhlexMock
     private $parser;
     private $serializer;
 
+    private static $closureContainerScriptLines = [];
+
     private static $classMethodHash = [];
 
     public function __construct()
@@ -82,7 +84,11 @@ class PhlexMock
    
         $sl = $closureRF->getStartLine();
         $el = $closureRF->getEndLine();
-        $lines = explode("\n",file_get_contents($closureRF->getFileName()));
+        $closureContainerScript = $closureRF->getFileName();
+        if (!isset(self::$closureContainerScriptLines[$closureContainerScript])) {
+            self::$closureContainerScriptLines[$closureContainerScript] = explode("\n",file_get_contents($closureRF->getFileName()));
+        }
+        $lines = self::$closureContainerScriptLines[$closureContainerScript];
         $code = '$func = function'.$paramStr.' { '.implode("\n",array_slice($lines, $sl, $el - $sl - 1)).' };';
         self::$classMethodHash[$className][$methodName] = $code;
     }
