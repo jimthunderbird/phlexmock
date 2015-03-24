@@ -1,6 +1,14 @@
 # phlexmock
 A tool to allow developers to redefining PHP class methods for testing purposes.
 
+Traditionally when we do unit test in PHP using tools like PHPUnit, we would need to create mock classes or mock objects
+in order to simulate the testing context. Since PHP, unlike other scripting languages for example Ruby, does not support method reopenning, 
+this makes the object and class mocking a bit cumbersome. Phlexmock aims to bring the method reopenning power to PHP.
+
+Phlexmock uses the power of spl_autoload_register function in PHP together with static code analysis tool PHP-Parser to achieve the method reopenning feature.
+
+Warning: While method reopening is great, we recommend using phlexmock for unit testing and mocking only, using in production code will have a performance hit.
+
 ##Installation 
 Add phlexmock to your composer.json 
 ```
