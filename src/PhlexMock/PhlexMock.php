@@ -152,8 +152,6 @@ class PhlexMock
         $constructorExists = false;
         $destructorExists = false;
 
-        $classMethodHash = array();
-
         foreach($classMap as $className => $classInfo) {
             foreach($classInfo->methodInfos as $name => $methodInfo) {
 
@@ -183,7 +181,7 @@ class PhlexMock
                 }
 
                 //we simply store the closure clode to the class method hash and evaluate later
-                $classMethodHash[$className][$methodName] = "\$func=".str_replace($name, 'function',$methodInfo->name).$methodInfo->code.';';
+                self::$classMethodHash[$className][$methodName] = "\$func=".str_replace($name, 'function',$methodInfo->name).$methodInfo->code.';';
             }
 
             if (!$constructorExists) {
@@ -245,10 +243,6 @@ CODE;
             $codeLines[$classInfo->startLine + 1] = $defineMethodHashCode."\n\n".$magicMethodCode.$codeLines[$classInfo->startLine + 1];
 
     }
-
-    //now store the classMethodHash
-
-    self::setClassMethodHash($classMethodHash);
 
     $classCode = implode("\n",$codeLines);
     //now eval the class code 
