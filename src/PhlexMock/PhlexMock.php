@@ -20,7 +20,9 @@ class PhlexMock
         '__construct' => 1,
         '__destruct' => 1,
         '__call' => 1,
-        '__callstatic' => 1   
+        '__callstatic' => 1,
+        '__get' => 1,
+        '__set' => 1   
     ];
 
     private static $closureContainerScriptLines = [];
