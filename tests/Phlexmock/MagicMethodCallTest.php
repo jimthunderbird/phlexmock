@@ -21,9 +21,9 @@ class MagicMethodCallTest extends TestCase
     {
         $obj = new \TestClass\MethodMissingCatcher();
         $result = $obj->randomMethod();
-        $this->assertEquals($result, "caught missing dynmaic method randommethod");
+        $this->assertEquals($result, "caught missing dynmaic method randomMethod");
 
         $result = \TestClass\MethodMissingCatcher::randomStaticMethod();
-        $this->assertEquals($result, "caught missing static method randomstaticmethod");
+        $this->assertEquals($result, "caught missing static method randomStaticMethod");
     }
 }

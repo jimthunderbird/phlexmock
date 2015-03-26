@@ -215,10 +215,10 @@ DMH;
             //add the magic method __call 
             $magicMethodCode .= <<<CODE
 \n\npublic function __call(\$name, \$args){ 
-    \$name = strtolower(\$name);
     \$classMethodHash = \PhlexMock\PhlexMock::getClassMethodHash();
-    if (isset(\$classMethodHash['$className'][\$name])){
-        eval(\$classMethodHash['$className'][\$name]);
+    \$lcName = strtolower(\$name);
+    if (isset(\$classMethodHash['$className'][\$lcName])){
+        eval(\$classMethodHash['$className'][\$lcName]);
         return call_user_func_array(\$func, \$args); 
     } else if (isset(\$classMethodHash['$className']['phlexmock___call'])) {
         eval(\$classMethodHash['$className']['phlexmock___call']);
@@ -234,10 +234,10 @@ CODE;
             //add the magic method __callStatic 
             $magicMethodCode .= <<<CODE
 \n\npublic static function __callStatic(\$name, \$args){ 
-    \$name = strtolower(\$name);
+    \$lcName = strtolower(\$name);
     \$classMethodHash = \PhlexMock\PhlexMock::getClassMethodHash();
-    if (isset(\$classMethodHash['$className'][\$name])){
-        eval(\$classMethodHash['$className'][\$name]);
+    if (isset(\$classMethodHash['$className'][\$lcName])){
+        eval(\$classMethodHash['$className'][\$lcName]);
         return call_user_func_array(\$func, \$args); 
     } else if (isset(\$classMethodHash['$className']['phlexmock___callstatic'])) {
         eval(\$classMethodHash['$className']['phlexmock___callstatic']);
