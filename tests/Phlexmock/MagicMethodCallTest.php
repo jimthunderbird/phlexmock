@@ -32,4 +32,14 @@ class MagicMethodCallTest extends TestCase
         $result = \TestClass\MethodMissingCatcher::randomStaticMethod();
         $this->assertEquals($result, "caught missing static method randomStaticMethod");
     }
+
+    /**
+     * test magic method call __get and __set 
+     */
+    public function testGetAndSet()
+    {
+        $obj = new \TestClass\Storage();
+        $obj->value = 10;
+        $this->assertEquals($obj->value, 10);
+    }
 }

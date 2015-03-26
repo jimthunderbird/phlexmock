@@ -16,6 +16,13 @@ class PhlexMock
     private $parser;
     private $serializer;
 
+    private static $specialMethods = [
+        '__construct' => 1,
+        '__destruct' => 1,
+        '__call' => 1,
+        '__callstatic' => 1   
+    ];
+
     private static $closureContainerScriptLines = [];
 
     private static $classMethodHash = [];
@@ -66,7 +73,7 @@ class PhlexMock
     public static function updateClassMethodHash($className, $methodName, $closure)
     {
         $methodName= strtolower($methodName);
-        if ($methodName == "__construct" || $methodName == "__destruct" || $methodName == "__call" || $methodName == "__callStatic") { 
+        if (isset(self::$specialMethods[$methodName]) && self::$specialMethods[$methodName] == 1) { 
             $methodName= "phlexmock_".$methodName;
         }
 
@@ -81,7 +88,7 @@ class PhlexMock
             }
             $paramStr = "(".implode(",",$params).")";
         }
-   
+
         $sl = $closureRF->getStartLine();
         $el = $closureRF->getEndLine();
         $closureContainerScript = $closureRF->getFileName();
@@ -162,7 +169,7 @@ class PhlexMock
                     $codeLines[$l - 1] = "";
                 }
 
-                if ($methodName == "__construct" || $methodName == "__destruct") {  
+                if ($methodName == "__construct" || $methodName == "__destruct" || $methodName == "__get" || $methodName == "__set") {  
                     if ($name == "__construct") {
                         $constructorExists = true;
                     }
@@ -170,13 +177,10 @@ class PhlexMock
                         $destructorExists = true;
                     }
                     $methodName = "phlexmock_".$methodName;
-                    for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
-                        $codeLines[$l - 1] = "";
-                    }
 
                     $codeLines[$l - 2] = "public function ".$methodInfo->name."{
                     \$args = func_get_args();
-                    call_user_func_array(array(\$this,'$methodName'), \$args);
+                    return call_user_func_array(array(\$this,'$methodName'), \$args);
                 }";
                 }
 
