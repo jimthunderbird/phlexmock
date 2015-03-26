@@ -66,7 +66,7 @@ class PhlexMock
     public static function updateClassMethodHash($className, $methodName, $closure)
     {
         $methodName= strtolower($methodName);
-        if ($methodName == "__construct" || $methodName == "__destruct") { //special treatment for constructor and destructor!
+        if ($methodName == "__construct" || $methodName == "__destruct" || $methodName == "__call" || $methodName == "__callStatic") { 
             $methodName= "phlexmock_".$methodName;
         }
 
@@ -148,11 +148,11 @@ class PhlexMock
 
         //now reopen all methods ... 
 
-        //see if the constructor and destructor exists in the class  
-        $constructorExists = false;
-        $destructorExists = false;
-
         foreach($classMap as $className => $classInfo) {
+            //see if the constructor and destructor exists in the class  
+            $constructorExists = false;
+            $destructorExists = false;
+
             foreach($classInfo->methodInfos as $name => $methodInfo) {
 
                 $methodName = strtolower($name); #use lowercase method name so that we can have case insensitive method names
@@ -162,7 +162,7 @@ class PhlexMock
                     $codeLines[$l - 1] = "";
                 }
 
-                if ($name == "__construct" || $name == "__destruct") { //this is the constructor or destructor 
+                if ($methodName == "__construct" || $methodName == "__destruct") {  
                     if ($name == "__construct") {
                         $constructorExists = true;
                     }
@@ -173,11 +173,15 @@ class PhlexMock
                     for($l = $methodInfo->startLine; $l <= $methodInfo->endLine; $l++) {
                         $codeLines[$l - 1] = "";
                     }
-                    //now add the fake constructor and destructor
+
                     $codeLines[$l - 2] = "public function ".$methodInfo->name."{
                     \$args = func_get_args();
                     call_user_func_array(array(\$this,'$methodName'), \$args);
                 }";
+                }
+
+                if ($methodName == "__call" || $methodName == "__callstatic") {
+                    $methodName = "phlexmock_".$methodName;
                 }
 
                 //we simply store the closure clode to the class method hash and evaluate later
@@ -216,6 +220,9 @@ DMH;
     if (isset(\$classMethodHash['$className'][\$name])){
         eval(\$classMethodHash['$className'][\$name]);
         return call_user_func_array(\$func, \$args); 
+    } else if (isset(\$classMethodHash['$className']['phlexmock___call'])) {
+        eval(\$classMethodHash['$className']['phlexmock___call']);
+        return \$func(\$name, \$args);
     } else {
         if (get_parent_class() !== FALSE) {
             return parent::__call(\$name, \$args);
@@ -232,6 +239,9 @@ CODE;
     if (isset(\$classMethodHash['$className'][\$name])){
         eval(\$classMethodHash['$className'][\$name]);
         return call_user_func_array(\$func, \$args); 
+    } else if (isset(\$classMethodHash['$className']['phlexmock___callstatic'])) {
+        eval(\$classMethodHash['$className']['phlexmock___callstatic']);
+        return \$func(\$name, \$args);
     } else {
         if (get_parent_class() !== FALSE) {
             return parent::__callStatic(\$name, \$args);
@@ -242,13 +252,13 @@ CODE;
 
             $codeLines[$classInfo->startLine + 1] = $defineMethodHashCode."\n\n".$magicMethodCode.$codeLines[$classInfo->startLine + 1];
 
-    }
+        }
 
-    $classCode = implode("\n",$codeLines);
-    //now eval the class code 
-    $classCode = str_replace('<?php','',$classCode);
-    $classCode = $this->removeBlankLines($classCode);
-    return $classCode;
+        $classCode = implode("\n",$codeLines);
+        //now eval the class code 
+        $classCode = str_replace('<?php','',$classCode);
+        $classCode = $this->removeBlankLines($classCode);
+        return $classCode;
     }
 
     private function getClassMap($codeLines, $codeASTXMLLines)
