@@ -41,5 +41,12 @@ class MagicMethodCallTest extends TestCase
         $obj = new \TestClass\Storage();
         $obj->value = 10;
         $this->assertEquals($obj->value, 10);
+
+        \TestClass\Storage::phlexmockMethod('__get', function($key){
+            return 2 * $this->hash[$key];
+        });
+    
+        $obj->value = 10;
+        $this->assertEquals($obj->value, 20);
     }
 }
