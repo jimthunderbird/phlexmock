@@ -1,5 +1,5 @@
 # phlexmock
-A tool to allow developers to redefining PHP class methods for testing purposes.
+A tool to allow developers to redefine PHP class methods for testing purposes.
 
 Traditionally when we do unit test in PHP using tools like PHPUnit, we would need to create mock classes or mock objects
 in order to simulate the testing context. Since PHP, unlike other scripting languages for example Ruby, does not support method reopenning, 

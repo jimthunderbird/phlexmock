@@ -184,7 +184,7 @@ class PhlexMock
                     $methodName = "phlexmock_".$methodName;
                 }
 
-                //we simply store the closure clode to the class method hash and evaluate later
+                //we simply store the closure code to the class method hash and evaluate later
                 self::$classMethodHash[$className][$methodName] = "\$func=".str_replace($name, 'function',$methodInfo->name).$methodInfo->code.';';
             }
 
