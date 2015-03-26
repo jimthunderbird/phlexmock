@@ -285,11 +285,6 @@ CODE;
             } else if (strpos($line,"<node:Stmt_Class>") > 0) {
                 $classInfo = new \stdClass();
                 $classInfo->startLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
-                //is it an abstract class?
-                $classInfo->isAbstract = false;
-                if (strpos(trim($codeLines[$classInfo->startLine-1]), "abstract ") === 0) {
-                    $classInfo->isAbstract = true;
-                }
                 $classInfo->endLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 5]);
                 if (strlen($namespace) > 0) {
                     $namespace = "\\".$namespace."\\";
@@ -300,8 +295,6 @@ CODE;
                 $classInfo->className = $namespace.trim(str_replace(array("<scalar:string>","</scalar:string>"),"",$codeASTXMLLines[$index + 11])); # for Php Parser 1.0.x it is $index + 11 
                 $classInfo->pureName = array_pop(explode("\\",$classInfo->className));
                 $classInfo->methodInfos = array();
-                $classInfo->properties = array();
-                $classInfo->staticProperties = array();
                 $className = $classInfo->className;
 
                 $classInfos[] = $classInfo;   
@@ -309,31 +302,6 @@ CODE;
                 $classMap[$classInfo->className] = $classInfo;
                 //reset namespace to empty 
                 $namespace = "";
-            } else if (strpos($line, "<node:Stmt_Property>") > 0) {
-                $propertyStartLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
-                $propertyCode = $codeLines[$propertyStartLine - 1];
-                $propertyInfo = new \stdClass();
-
-                $propertyStartPos = strpos($propertyCode, "$");
-                $propertyEndPos = strpos($propertyCode, ";");
-
-                $propertyComps = explode("=",substr($propertyCode, $propertyStartPos + 1, $propertyEndPos - $propertyStartPos - 1));
-
-                $propertyInfo->name = trim($propertyComps[0]);
-                $propertyInfo->value = null;
-                //some property might not have a value;
-                if (count($propertyComps) > 1) {
-                    $propertyInfo->value = str_replace('"',"'", trim($propertyComps[1]));
-                }
-                $propertyInfo->code = $propertyCode; 
-
-                if(strpos($propertyCode, "static ") !== FALSE) {
-                    //this is a static property 
-                    $classMap[$className]->staticProperties[] = $propertyInfo;
-                } else {
-                    //this is a dynamic property   
-                    $classMap[$className]->properties[] = $propertyInfo;
-                }
             } else if (strpos($line,"<node:Stmt_ClassMethod>") > 0) {
                 $classMethodInfo = new \stdClass();
                 $classMethodInfo->startLine = (int)str_replace(array("<scalar:int>","</scalar:int>"),"",$codeASTXMLLines[$index + 2]);
@@ -344,39 +312,7 @@ CODE;
 
                 $classMethodInfo->code = implode("\n",array_slice($codeLines, $classMethodInfo->startLine, $classMethodInfo->endLine - $classMethodInfo->startLine));
 
-                //now figure out where it is public, protected or private 
-
-                //find out all methods belongs to this class
-                foreach(array("public","protected","private") as $visibility) {
-                    if (strpos($startLineContent,"$visibility ") !== FALSE) {
-                        $classMethodInfo->visibility = $visibility;
-                    }
-                }
-
-                if (!isset($classMethodInfo->visibility)) {
-                    $classMethodInfo->visibility = "protected";
-                }
-
-                if (strpos($startLineContent, "static ") !== FALSE) {
-                    $classMethodInfo->isStatic = true;
-                } else {
-                    $classMethodInfo->isStatic = false;
-                }
-
                 $classMap[$className]->methodInfos[$classMethodInfo->pureName] = $classMethodInfo;
-            }
-        }
-
-        //now figure out the parent classes for each class
-        foreach($classInfos as $index => $classInfo) {
-            $line = trim($codeLines[$classInfo->startLine - 1]);
-            if (strpos($line, " extends ") !== FALSE) {
-                $lineComps = explode(" extends ", $line);
-                $namespace = "\\";
-                if ($classInfo->namespace !== "\\") {
-                    $namespace = "\\".$classInfo->namespace."\\";
-                }
-                $classMap[$classInfo->className]->parentClass = $namespace.trim(explode(" ",$lineComps[1])[0]);
             }
         }
 
