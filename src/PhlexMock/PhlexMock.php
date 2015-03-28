@@ -194,13 +194,13 @@ class PhlexMock
                 self::$classMethodHash[$className][$methodName] = "\$func=".str_replace($name, 'function',$methodInfo->name).$methodInfo->code.';';
             }
 
-            if (!$constructorExists) {
+            if (!$constructorExists) { //if the constructor does not exist, fake one
                 $codeLines[$classInfo->startLine + 1] = "\n\npublic function __construct() {
-                    call_user_func_array(array(\$this,'phlexmock___construct'),array());
+                    call_user_func_array(array(\$this,'phlexmock___construct'),func_get_args());
             }\n\n".$codeLines[$classInfo->startLine + 1];
             }
 
-            if (!$destructorExists) {
+            if (!$destructorExists) { //if the destructor does not exist, fake one
                 $codeLines[$classInfo->startLine + 1] = "\n\npublic function __destruct() {
                     call_user_func_array(array(\$this,'phlexmock___destruct'),array());
             }\n\n".$codeLines[$classInfo->startLine + 1];

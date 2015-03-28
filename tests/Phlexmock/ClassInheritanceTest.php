@@ -30,4 +30,22 @@ class ClassInheritanceTest extends TestCase
         $this->assertEquals($obj->getCurrentClass(), 'Shape');
 
     }
+
+    public function testConstructorInParentWithParams()
+    {
+        $obj = new \TestClass\Point(2,3);
+        $this->assertEquals($obj->getX(), 2);
+        $this->assertEquals($obj->getY(), 3);
+
+        //reopen parent class's constructor 
+        \TestClass\BasePoint::phlexmockMethod('__construct', function($x,$y){
+            $this->x = 2 * $x;
+            $this->y = 2 * $y;
+        });
+
+        $obj = new \TestClass\Point(2,3);
+        $this->assertEquals($obj->getX(), 4);
+        $this->assertEquals($obj->getY(), 6);
+
+    }
 }
