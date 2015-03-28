@@ -23,6 +23,7 @@ Add phlexmock to your composer.json
 
 + [Reopenning methods in a class](#example-01)
 + [Use this keyword in the reopened methods](#example-02)
++ [Use self keyword in the reopened methods](#example-03)
 
 ###Example 01 
 ####Reopenning methods in a class
@@ -97,6 +98,7 @@ $user->info();
 
 ####Let's say we have a class named Circle.php in our current directory and it looks like the following:
 ```php 
+<?php
 class Circle 
 {
     private $x;
@@ -119,8 +121,9 @@ class Circle
 $this->x = 2 * $x
 ```
 
-####Let's do that with phlexmock 
+####Let's do that with PhlexMock 
 ```php 
+<?php
 require_once __DIR__."/vendor/autoload.php";
 
 $phlexmock = new \PhlexMock\PhlexMock();
@@ -137,3 +140,29 @@ echo $c->getX();
 ``` 
 
 ####Now the setX method is reopened and in the code above, we will be seeing 4 printed on the screen. 
+
+###Example 03 
+####Using the self keyword in the reopened methods 
+
+####Let's say we have a class named Storage.php in our current directory and it looks like the following:
+```php 
+<?php
+class Storage 
+{
+    private static $value;
+}
+```
+
+####And below is the code to use PhlexMock to create a new method setValue to set the static variable $value 
+```php 
+<?php 
+require_once __DIR__."/vendor/autoload.php";
+
+$phlexmock = new \PhlexMock\PhlexMock();
+$phlexmock->setClassSearchPaths([__DIR__]);
+$phlexmock->start();
+
+\Storage::phlexmockMethod('setValue', function($value){
+    self::$value = $value;
+}); 
+```
