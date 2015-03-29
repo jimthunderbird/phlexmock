@@ -27,7 +27,9 @@ class PhlexMock
 
     private static $closureContainerScriptLines = [];
 
-    private static $classMethodHash = [];
+    private static $classMethodHash = []; //store the current class method hash 
+
+    private static $originalClassMethodHash = []; //store the original class method hash
 
     public function __construct()
     {
@@ -60,6 +62,17 @@ class PhlexMock
         //initiate parser and serializer after autoloader is registered 
         $this->parser = new \PhpParser\Parser(new \PhpParser\Lexer());
         $this->serializer = new \PhpParser\Serializer\XML();
+    }
+
+    //reset to original class implementation
+    public function reset()
+    {
+        self::$classMethodHash = [];
+        foreach(self::$originalClassMethodHash as $className => $methodCodes) {
+            foreach($methodCodes as $methodName => $code) {
+                self::$classMethodHash[$className][$methodName] = $code;
+            }
+        }
     }
 
     public static function setClassMethodHash($classMethodHash)
@@ -190,8 +203,14 @@ class PhlexMock
                     $methodName = "phlexmock_".$methodName;
                 }
 
-                //we simply store the closure code to the class method hash and evaluate later
-                self::$classMethodHash[$className][$methodName] = "\$func=".str_replace($name, 'function',$methodInfo->name).$methodInfo->code.';';
+                //we simply store the closure code to the class method hash and evaluate later 
+                $code = "\$func=".str_replace($name, 'function',$methodInfo->name).$methodInfo->code.';';
+                self::$classMethodHash[$className][$methodName] = $code;
+
+                //also backup in the originalClassMethodHash 
+                if (!isset(self::$originalClassMethodHash[$className][$methodName])) {
+                   self::$originalClassMethodHash[$className][$methodName] = $code;
+                }
             }
 
             if (!$constructorExists) { //if the constructor does not exist, fake one
