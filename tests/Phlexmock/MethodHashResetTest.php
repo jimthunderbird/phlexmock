@@ -17,10 +17,10 @@ class MethodHashResetTest extends TestCase
 
     public function testResetAll()
     {
-        \TestClass\Point::phlexmockMethod('getX', function(){
+        \TestClass\BasePoint::phlexmockMethod('getX', function(){
             return 2 * $this->x;
         });
-        \TestClass\Point::phlexmockMethod('getY', function(){
+        \TestClass\BasePoint::phlexmockMethod('getY', function(){
             return 2 * $this->y;
         });
         $obj = new \TestClass\Point(2,3);

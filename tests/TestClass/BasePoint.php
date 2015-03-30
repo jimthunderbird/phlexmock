@@ -3,8 +3,8 @@ namespace TestClass;
 
 class BasePoint 
 {
-    protected $x;
-    protected $y;
+    private $x;
+    private $y;
 
     public function __construct($x,$y)
     {
