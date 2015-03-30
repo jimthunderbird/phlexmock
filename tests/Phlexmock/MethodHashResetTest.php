@@ -12,11 +12,11 @@ class MethodHashResetTest extends TestCase
         $this->phlexmock = new \PhlexMock\PhlexMock();
         $this->phlexmock->setClassSearchPaths([__DIR__."/../TestClass"]);
         $this->phlexmock->start();
-        $this->phlexmock->reset();
     }
 
     public function testResetAll()
     {
+        $this->phlexmock->reset(); //make sure we are in the correct baseline
         \TestClass\BasePoint::phlexmockMethod('getX', function(){
             return 2 * $this->x;
         });
