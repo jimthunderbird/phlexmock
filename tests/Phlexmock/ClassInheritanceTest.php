@@ -29,6 +29,11 @@ class ClassInheritanceTest extends TestCase
 
         $this->assertEquals($obj->getCurrentClass(), 'Shape');
 
+        \TestClass\Shape::phlexmockMethod('getCurrentCalledClass', function(){
+            return get_called_class();
+        });
+
+        $this->assertEquals($obj->getCurrentCalledClass(), 'TestClass\Circle');
     }
 
     public function testConstructorInParentWithParams()
