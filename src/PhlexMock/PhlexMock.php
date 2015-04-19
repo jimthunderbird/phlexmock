@@ -8,7 +8,6 @@ class PhlexMock
 {
     private $classSearchPaths;
     private $classExtensions;
-    private $excludePatterns;
 
     private $classFileMap;
     private $fileIndex;
